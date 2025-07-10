@@ -98,5 +98,8 @@ void AddAmbushSpot(const Vector &pos);
 bool IsDangerSpot(const Vector &pos);
 void LoadMapSpotData();
 void SaveMapSpotData();
+void CoverageRecord(const Vector &pos);
+bool CoverageVisited(const Vector &pos);
+Vector CoveragePickUnvisited(const Vector &origin);
 
 #endif // BOT_NAVIGATE_H
