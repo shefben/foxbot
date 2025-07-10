@@ -725,7 +725,7 @@ void BotUpdateNavigation(bot_t *pBot) {
     if(sig == SIG_ATTACK && pBot->enemy.ptr)
         next = NAV_STRAFE;
     else if(pBot->desired_reaction_state == REACT_PANIC)
-        next = NAV_STRAFE;
+        next = (random_float(0.0f, 1.0f) < 0.5f) ? NAV_STRAFE : NAV_JUMP;
     pBot->desired_nav_state = static_cast<int>(next);
 }
 
@@ -735,10 +735,17 @@ void BotApplyNavState(bot_t *pBot) {
         case NAV_STRAFE:
             pBot->f_waypoint_drift = random_long(0,1) ? 10.0f : -10.0f;
             pBot->f_side_speed = (random_long(0,1) ? pBot->f_max_speed : -pBot->f_max_speed);
+            if(pBot->desired_reaction_state == REACT_PANIC && random_long(0,1))
+                pBot->pEdict->v.button |= IN_JUMP;
             break;
         case NAV_JUMP:
             pBot->pEdict->v.button |= IN_JUMP;
-            pBot->f_waypoint_drift = 0.0f;
+            if(pBot->desired_reaction_state == REACT_PANIC) {
+                pBot->f_side_speed = (random_long(0,1) ? pBot->f_max_speed : -pBot->f_max_speed);
+                pBot->f_waypoint_drift = random_long(0,1) ? 10.0f : -10.0f;
+            } else {
+                pBot->f_waypoint_drift = 0.0f;
+            }
             break;
         case NAV_STRAIGHT:
         default:
