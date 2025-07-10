@@ -4,6 +4,7 @@
 #include "bot_job_think.h"
 #include "bot_markov.h"
 #include "bot_job_functions.h"
+#include <enginecallback.h>
 #include "bot_func.h"
 
 extern chatClass chat;
@@ -29,6 +30,7 @@ float gBotReaction[32];
 static void load_metrics(const char *file) {
     FILE *fp = fopen(file, "rb");
     if(!fp) {
+        UTIL_BotLogPrintf("load_metrics: failed to open %s\n", file);
         for(int i=0;i<32;i++) {
             gBotAccuracy[i] = 0.5f;
             gBotReaction[i] = 0.5f;
@@ -42,7 +44,10 @@ static void load_metrics(const char *file) {
 
 static void save_metrics(const char *file) {
     FILE *fp = fopen(file, "wb");
-    if(!fp) return;
+    if(!fp) {
+        UTIL_BotLogPrintf("save_metrics: failed to open %s\n", file);
+        return;
+    }
     fwrite(gBotAccuracy, sizeof(float), 32, fp);
     fwrite(gBotReaction, sizeof(float), 32, fp);
     fclose(fp);
@@ -51,6 +56,7 @@ static void save_metrics(const char *file) {
 static void load_counts(const char *file, unsigned *counts, int states) {
     FILE *fp = fopen(file, "rb");
     if(!fp) {
+        UTIL_BotLogPrintf("load_counts: failed to open %s\n", file);
         for(int i=0;i<states*states;i++) counts[i]=1;
         return;
     }
@@ -60,7 +66,10 @@ static void load_counts(const char *file, unsigned *counts, int states) {
 
 static void save_counts(const char *file, unsigned *counts, int states) {
     FILE *fp = fopen(file, "wb");
-    if(!fp) return;
+    if(!fp) {
+        UTIL_BotLogPrintf("save_counts: failed to open %s\n", file);
+        return;
+    }
     fwrite(counts, sizeof(unsigned), states*states, fp);
     fclose(fp);
 }
@@ -797,7 +806,10 @@ void FSMPeriodicSave(float currentTime) {
     if(currentTime >= g_fsm_next_save) {
         SaveFSMCounts();
         SaveBotMetrics();
-        g_fsm_next_save = currentTime + 120.0f;
+        float interval = CVAR_GET_FLOAT("bot_save_interval");
+        if(interval <= 0.0f)
+            interval = 120.0f;
+        g_fsm_next_save = currentTime + interval;
     }
 }
 
