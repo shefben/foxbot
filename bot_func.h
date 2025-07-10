@@ -91,6 +91,8 @@ void CombatFSMInit(CombatFSM *fsm, CombatState initial);
 CombatState CombatFSMNextState(CombatFSM *fsm);
 void BotUpdateCombat(bot_t *pBot);
 void BotApplyCombatState(bot_t *pBot);
+void BotFlankEnemy(bot_t *pBot);
+void BotSeekCover(bot_t *pBot);
 void AimFSMInit(AimFSM *fsm, AimState initial);
 AimState AimFSMNextState(AimFSM *fsm);
 void BotUpdateAim(bot_t *pBot);

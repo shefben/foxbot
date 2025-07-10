@@ -2341,6 +2341,24 @@ void BotCheckForMultiguns(bot_t *pBot, float nearestdistance, edict_t *pNewEnemy
    }
 }
 
+// Attempt to flank the current enemy by selecting a side route.
+void BotFlankEnemy(bot_t *pBot) {
+   if (!pBot || !pBot->enemy.ptr)
+      return;
+
+   BotFindSideRoute(pBot);
+}
+
+// Move towards nearby cover away from the current enemy.
+void BotSeekCover(bot_t *pBot) {
+   if (!pBot || !pBot->enemy.ptr)
+      return;
+
+   const int cover = BotFindRetreatPoint(pBot, 300, pBot->enemy.ptr->v.origin);
+   if (cover != -1)
+      pBot->goto_wp = cover;
+}
+
 // This function should be called once each frame so that it can maintain
 // an up to date list of which players are currently carrying a flag.
 void UpdateFlagCarrierList() {
