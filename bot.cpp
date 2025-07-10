@@ -308,6 +308,8 @@ void BotSpawnInit(bot_t *pBot) {
 
    pBot->strafe_mod = STRAFE_MOD_NORMAL;
    pBot->f_last_reply_time = 0.0f;
+   pBot->msg_team = false;
+   pBot->msgLocation[0] = '\0';
 
    // enemy stuff
    pBot->enemy.ptr = nullptr;
@@ -926,11 +928,13 @@ void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char 
       pBot->current_team = 0; // sane value, will be set properly once bot has spawned
 
       if (botJustJoined[index]) {
-         pBot->greeting = false; // new bots can always say "hello!"
-         pBot->newmsg = false;
-         pBot->message[0] = '\0';
-         pBot->msgstart[0] = '\0';
-         pBot->f_last_reply_time = 0.0f;
+        pBot->greeting = false; // new bots can always say "hello!"
+        pBot->newmsg = false;
+        pBot->message[0] = '\0';
+        pBot->msgstart[0] = '\0';
+        pBot->msg_team = false;
+        pBot->msgLocation[0] = '\0';
+        pBot->f_last_reply_time = 0.0f;
       }
 
       if (mod_id == TFC_DLL)
@@ -2887,11 +2891,22 @@ static void BotComms(bot_t *pBot) {
             if (colon) *colon = '\0';
             const char *text = strchr(msgPtr, ':');
             if (text) text += 2; else text = msgPtr;
-            MarkovAddSentence(text);
+            char mkLine[512];
+            if(pBot->msgLocation[0])
+               snprintf(mkLine, sizeof(mkLine), "%s %s", pBot->msgLocation, text);
+            else
+               strncpy(mkLine, text, sizeof(mkLine)-1);
+            mkLine[sizeof(mkLine)-1]='\0';
+            MarkovAddSentence(mkLine);
             if (pBot->f_last_reply_time + 10.0f < pBot->f_think_time && random_long(1, 1000) < bot_chat) {
                job_struct *rj = InitialiseNewJob(pBot, JOB_CHAT);
                if (rj) {
-                  MarkovGenerate(rj->message, MAX_CHAT_LENGTH);
+                  char gen[128];
+                  MarkovGenerate(gen, sizeof(gen));
+                  if(pBot->msgLocation[0])
+                     snprintf(rj->message, MAX_CHAT_LENGTH, "%s at %s", gen, pBot->msgLocation);
+                  else
+                     strncpy(rj->message, gen, MAX_CHAT_LENGTH-1);
                   rj->message[MAX_CHAT_LENGTH-1] = '\0';
                   SubmitNewJob(pBot, JOB_CHAT, rj);
                   pBot->f_last_reply_time = pBot->f_think_time;

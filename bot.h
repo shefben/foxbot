@@ -442,6 +442,8 @@ typedef struct {
    unsigned newmsg : 1; // set true if the bot should check a new message from another player
    char message[255];
    char msgstart[255];
+   bool msg_team;
+   char msgLocation[64];
    float f_roleSayDelay; // used to stop bots reporting stuff too often
    float f_last_reply_time; // last time bot replied to chat
 
