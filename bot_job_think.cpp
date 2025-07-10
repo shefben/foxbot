@@ -227,10 +227,15 @@ void BlacklistJob(bot_t *pBot, const int jobType, const float timeOut) {
 
 // This function returns true if the specified jobtype is already in the
 // job buffer.
-bool BufferContainsJobType(const bot_t *pBot, const int JobType) {
+bool BufferContainsJobType(const bot_t *pBot, const int JobType,
+                           const int minPriority) {
    for (int i = 0; i < JOB_BUFFER_MAX; i++) {
-      if (pBot->jobType[i] == JobType)
-         return true;
+      if (pBot->jobType[i] == JobType) {
+         if (minPriority == PRIORITY_NONE ||
+             pBot->job[i].priority >= minPriority)
+            return true;
+         return false;
+      }
    }
 
    return false;
@@ -255,13 +260,16 @@ int BufferedJobIndex(const bot_t *pBot, const int JobType) {
 // pointer to a common data storage area that you can use for the new job
 // you wish to add.  Importantly it will clear all of the new job's data before
 // giving you a pointer to it.
-job_struct *InitialiseNewJob(const bot_t *pBot, const int newJobType) {
+job_struct *InitialiseNewJob(const bot_t *pBot, const int newJobType,
+                             const bool allowExisting) {
    int i;
 
    // abort if the job is in the job buffer already
-   for (i = 0; i < JOB_BUFFER_MAX; i++) {
-      if (pBot->jobType[i] == newJobType)
-         return nullptr;
+   if (!allowExisting) {
+      for (i = 0; i < JOB_BUFFER_MAX; i++) {
+         if (pBot->jobType[i] == newJobType)
+            return nullptr;
+      }
    }
 
    // abort if the job is currently blacklisted
@@ -316,25 +324,29 @@ bool SubmitNewJob(bot_t *pBot, const int newJobType, job_struct *newJob) {
    if (newJob->priority == PRIORITY_NONE)
       return false;
 
-   // look for the job with the lowest priority
-   int worstJobFound = -1;
+   // look for an existing job of the same type
+   int worstJobFound = BufferedJobIndex(pBot, newJobType);
    int worstJobPriority = newJob->priority;
-   for (i = 0; i < JOB_BUFFER_MAX; i++) {
-      // found an unused job index?
-      if (pBot->jobType[i] == JOB_NONE) {
-         worstJobFound = i;
-         worstJobPriority = PRIORITY_NONE;
-         continue;
-      }
 
-      // currently, only one of each type of job is allowed in the buffer
-      if (pBot->jobType[i] == newJobType)
+   if (worstJobFound != -1) {
+      // only replace if the new job has a higher priority
+      if (pBot->job[worstJobFound].priority >= newJob->priority)
          return false;
+   } else {
+      // find the job with the lowest priority
+      for (i = 0; i < JOB_BUFFER_MAX; i++) {
+         // found an unused job index?
+         if (pBot->jobType[i] == JOB_NONE) {
+            worstJobFound = i;
+            worstJobPriority = PRIORITY_NONE;
+            continue;
+         }
 
-      // is this the lowest priority job found so far?
-      if (pBot->job[i].priority < worstJobPriority) {
-         worstJobFound = i;
-         worstJobPriority = pBot->job[i].priority;
+         // is this the lowest priority job found so far?
+         if (pBot->job[i].priority < worstJobPriority) {
+            worstJobFound = i;
+            worstJobPriority = pBot->job[i].priority;
+         }
       }
    }
 

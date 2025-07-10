@@ -364,9 +364,9 @@ void BotEnemyCheck(bot_t *pBot) {
                for (int i = 0; i < 32; i++) {
                   if (bots[i].is_used && bots[i].lastEnemySentryGun == deadSG) {
                      // get one bot that saw the sentry get destroyed to report it
-                     if (!destruction_reported && bots[i].current_team == pBot->current_team && !BufferContainsJobType(&bots[i], JOB_REPORT) && VectorsNearerThan(deadSG->v.origin, bots[i].pEdict->v.origin, 1400.0f) &&
+                     if (!destruction_reported && bots[i].current_team == pBot->current_team  && VectorsNearerThan(deadSG->v.origin, bots[i].pEdict->v.origin, 1400.0f) &&
                          FVisible(deadSG->v.origin + deadSG->v.view_ofs, bots[i].pEdict)) {
-                        job_struct *newJob = InitialiseNewJob(&bots[i], JOB_REPORT);
+                        job_struct *newJob = InitialiseNewJob(&bots[i], JOB_REPORT, true);
                         if (newJob != nullptr) {
                            strncpy(newJob->message, msg, MAX_CHAT_LENGTH);
                            newJob->message[MAX_CHAT_LENGTH - 1] = '\0';
@@ -748,7 +748,7 @@ static edict_t *BotFindEnemy(bot_t *pBot) {
 
       // track whether or not the bot is willing to escort an ally
       bool canEscort = false;
-      if (!pBot->bot_has_flag && !BufferContainsJobType(pBot, JOB_ESCORT_ALLY))
+      if (!pBot->bot_has_flag)
          canEscort = true;
 
       // search the world for players...
@@ -802,7 +802,7 @@ static edict_t *BotFindEnemy(bot_t *pBot) {
 
                   // try and set up an escort job if the ally has a flag
                   if (canEscort && PlayerHasFlag(pPlayer)) {
-                     job_struct *newJob = InitialiseNewJob(pBot, JOB_ESCORT_ALLY);
+                     job_struct *newJob = InitialiseNewJob(pBot, JOB_ESCORT_ALLY, true);
                      if (newJob != nullptr) {
                         newJob->player = pPlayer;
                         newJob->origin = pPlayer->v.origin; // remember where
