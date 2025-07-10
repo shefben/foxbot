@@ -36,8 +36,115 @@
 #include "bot_job_think.h"
 #include "bot_navigate.h"
 #include "bot_weapons.h"
+#include <cstdio>
+#include <climits>
 #include <vector>
 #include <algorithm>
+
+struct Spot {
+   Vector origin;
+   int count;
+};
+
+static std::vector<Spot> g_dangerSpots;
+static std::vector<Spot> g_ambushSpots;
+
+static void build_spot_filename(char *out, const char *suffix) {
+   char mapname[64];
+   strncpy(mapname, STRING(gpGlobals->mapname), sizeof(mapname) - 1);
+   mapname[sizeof(mapname) - 1] = '\0';
+   strncat(mapname, suffix, sizeof(mapname) - strlen(mapname) - 1);
+   UTIL_BuildFileName(out, 255, "mapdata", mapname);
+}
+
+static void load_spots(const char *file, std::vector<Spot> &spots) {
+   spots.clear();
+   FILE *fp = fopen(file, "rb");
+   if(!fp) return;
+   unsigned num = 0;
+   if(fread(&num, sizeof(unsigned), 1, fp) == 1) {
+      for(unsigned i=0;i<num;i++) {
+         Spot s{};
+         fread(&s, sizeof(Spot), 1, fp);
+         spots.push_back(s);
+      }
+   }
+   fclose(fp);
+}
+
+static void save_spots(const char *file, const std::vector<Spot> &spots) {
+   FILE *fp = fopen(file, "wb");
+   if(!fp) return;
+   unsigned num = spots.size();
+   fwrite(&num, sizeof(unsigned), 1, fp);
+   for(const Spot &s : spots)
+      fwrite(&s, sizeof(Spot), 1, fp);
+   fclose(fp);
+}
+
+static void LoadDangerSpots() {
+   char fname[256];
+   build_spot_filename(fname, "_danger.dat");
+   load_spots(fname, g_dangerSpots);
+}
+
+static void SaveDangerSpots() {
+   char fname[256];
+   build_spot_filename(fname, "_danger.dat");
+   save_spots(fname, g_dangerSpots);
+}
+
+static void LoadAmbushSpots() {
+   char fname[256];
+   build_spot_filename(fname, "_ambush.dat");
+   load_spots(fname, g_ambushSpots);
+}
+
+static void SaveAmbushSpots() {
+   char fname[256];
+   build_spot_filename(fname, "_ambush.dat");
+   save_spots(fname, g_ambushSpots);
+}
+
+void LoadMapSpotData() {
+   LoadDangerSpots();
+   LoadAmbushSpots();
+}
+
+void SaveMapSpotData() {
+   SaveDangerSpots();
+   SaveAmbushSpots();
+}
+
+void AddDangerSpot(const Vector &pos) {
+   for(auto &s : g_dangerSpots) {
+      if((s.origin - pos).Length() < 128.0f) {
+         if(s.count < INT_MAX) ++s.count;
+         return;
+      }
+   }
+   Spot s{pos,1};
+   g_dangerSpots.push_back(s);
+}
+
+void AddAmbushSpot(const Vector &pos) {
+   for(auto &s : g_ambushSpots) {
+      if((s.origin - pos).Length() < 128.0f) {
+         if(s.count < INT_MAX) ++s.count;
+         return;
+      }
+   }
+   Spot s{pos,1};
+   g_ambushSpots.push_back(s);
+}
+
+bool IsDangerSpot(const Vector &pos) {
+   for(const auto &s : g_dangerSpots) {
+      if((s.origin - pos).Length() < 128.0f)
+         return true;
+   }
+   return false;
+}
 
 extern bot_weapon_t weapon_defs[MAX_WEAPONS];
 extern edict_t *clients[32];
@@ -954,6 +1061,15 @@ static bool BotUpdateRoute(bot_t *pBot) {
          nextWP = WaypointRouteFromTo(pBot->current_wp, pBot->goto_wp, pBot->current_team);
       else // bots current goal is a branching waypoint
          nextWP = WaypointRouteFromTo(pBot->current_wp, pBot->branch_waypoint, pBot->current_team);
+
+      if (nextWP != -1 && IsDangerSpot(waypoints[nextWP].origin)) {
+         if (BotChangeRoute(pBot)) {
+            if (pBot->branch_waypoint == -1)
+               nextWP = WaypointRouteFromTo(pBot->current_wp, pBot->goto_wp, pBot->current_team);
+            else
+               nextWP = WaypointRouteFromTo(pBot->current_wp, pBot->branch_waypoint, pBot->current_team);
+         }
+      }
 
       // figure out how near to the bot's current waypoint the bot has to be
       // before it will move on the next waypoint

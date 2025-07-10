@@ -37,6 +37,7 @@
 #include "bot_weapons.h"
 #include "bot_fsm.h"
 #include "bot_rl.h"
+#include "bot_navigate.h"
 #include "waypoint.h"
 #include "bot_markov.h"
 #include "bot_memory.h"
@@ -2428,13 +2429,17 @@ void StartFrame() { // v7 last frame timing
    clientdata_s cd;
    int count;
 
+   bool savedSpots = false;
    for(int bi=0; bi<32; ++bi) {
       if(bots[bi].is_used && bots[bi].round_end) {
          RL_RecordRoundEnd(&bots[bi].fsm, &bots[bi]);
          bots[bi].round_end = 0;
          RL_SaveScores();
+         savedSpots = true;
       }
    }
+   if(savedSpots)
+      SaveMapSpotData();
       // if a new map has started then (MUST BE FIRST IN StartFrame)...
       if (strcmp(STRING(gpGlobals->mapname), prevmapname) != 0) {
          first_player = nullptr;
@@ -2933,6 +2938,7 @@ void StartFrame() { // v7 last frame timing
       script_loaded = false;
       script_parsed = false;
       strcpy(prevmapname, STRING(gpGlobals->mapname));
+      LoadMapSpotData();
       char filename[256];
       char mapname[64];
       int i; // reset known team data on map change
