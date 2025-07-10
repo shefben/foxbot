@@ -1035,11 +1035,11 @@ void pfnGetPlayerStats(const edict_t *pClient, int *ping, int *packet_loss) {
    // Always override stats for bots but leave real players untouched
    if (pBot) {
       if (ping)
-         *ping = pBot->fake_ping;
+         *ping = static_cast<int>(pBot->fake_ping);
       if (packet_loss)
          *packet_loss = 0;
       if (mr_meta)
-         RETURN_META(MRES_HANDLED);
+         RETURN_META(MRES_SUPERCEDE);
       return;
    }
 
