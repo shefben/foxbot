@@ -127,6 +127,28 @@ int JobSeekWaypoint(bot_t *pBot) {
    // phase zero - try checking for a current waypoint first
    if (job_ptr->phase == 0) {
       BotFindCurrentWaypoint(pBot);
+      if (pBot->current_wp == -1) {
+         // no waypoint found - try following a nearby human teammate
+         edict_t *closest = nullptr;
+         float bestDist = 600.0f;
+         for (int i = 1; i <= gpGlobals->maxClients; ++i) {
+            edict_t *player = INDEXENT(i);
+            if (player && !player->free && !(player->v.flags & FL_FAKECLIENT) &&
+                IsAlive(player) && UTIL_GetTeam(player) == pBot->current_team) {
+               const float d = (player->v.origin - pBot->pEdict->v.origin).Length();
+               if (d < bestDist) {
+                  bestDist = d;
+                  closest = player;
+               }
+            }
+         }
+
+         if (closest != nullptr) {
+            job_ptr->player = closest;
+            job_ptr->phase = 3; // follow teammate
+            return JOB_UNDERWAY;
+         }
+      }
 
       job_ptr->phase = 1;
       return JOB_UNDERWAY;
@@ -166,6 +188,28 @@ int JobSeekWaypoint(bot_t *pBot) {
       if (job_ptr->phase_timer < pBot->f_think_time || (pBot->f_move_speed > 5.0 && pBot->pEdict->v.velocity.Length() < 0.1)) {
          job_ptr->phase = 0;
          return JOB_UNDERWAY;
+      }
+   }
+
+   // phase 3 - follow a nearby human until a waypoint is found
+   if (job_ptr->phase == 3) {
+      if (FNullEnt(job_ptr->player) || job_ptr->player->free ||
+          UTIL_GetTeam(job_ptr->player) != pBot->current_team ||
+          !IsAlive(job_ptr->player) ||
+          !VectorsNearerThan(pBot->pEdict->v.origin, job_ptr->player->v.origin, 800.0)) {
+         job_ptr->phase = 0;
+         job_ptr->player = nullptr;
+         return JOB_UNDERWAY;
+      }
+
+      BotSetFacing(pBot, job_ptr->player->v.origin);
+      BotNavigateWaypointless(pBot);
+
+      if (pBot->f_periodicAlert1 < pBot->f_think_time) {
+         BotFindCurrentWaypoint(pBot);
+         if (pBot->current_wp != -1) {
+            job_ptr->phase = 0;
+         }
       }
    }
 
