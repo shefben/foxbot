@@ -1412,3 +1412,4 @@ Jan-16-2001
 -  Spys will attempt to backstab (if disguised)
 
 -  If a bot sees an enemy sentry gun, they will attempt to kill it without being shot
+-  Bots without a path now follow nearby human teammates or investigate combat sounds
