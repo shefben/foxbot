@@ -1,4 +1,5 @@
 #include "bot_markov.h"
+#include "bot.h"
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -8,6 +9,7 @@
 #include <sstream>
 #include <deque>
 #include <fstream>
+#include <cstdio>
 
 static std::unordered_map<std::string, std::vector<std::string>> g_chain;
 static size_t g_order = 3; // default to trigram
@@ -167,6 +169,28 @@ bool MarkovLoad(const char *file) {
                 add_pair(prefix, tokens[pos]);
         }
     }
+
+    // Seed chain with default chat lines for better vocabulary
+    char chatFile[256];
+    UTIL_BuildFileName(chatFile, 255, (char*)"foxbot_chat.txt", nullptr);
+    FILE *cfp = fopen(chatFile, "r");
+    if(cfp) {
+        char buf[256];
+        while(UTIL_ReadFileLine(buf, sizeof(buf), cfp)) {
+            size_t len = strlen(buf);
+            if(len && (buf[len-1] == '\n' || buf[len-1] == '\r'))
+                buf[--len] = '\0';
+            if(buf[0] == '#' || buf[0] == '\0')
+                continue;
+            if(buf[0] == '[')
+                continue;
+            char *ptr = strstr(buf, "%n");
+            if(ptr) *(ptr+1) = 's';
+            MarkovAddSentence(buf);
+        }
+        fclose(cfp);
+    }
+
     return true;
 }
 
