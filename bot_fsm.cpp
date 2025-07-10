@@ -3,6 +3,7 @@
 #include "bot.h"
 #include "bot_job_think.h"
 #include "bot_markov.h"
+#include "bot_job_functions.h"
 
 extern chatClass chat;
 extern int bot_chat;
@@ -647,18 +648,33 @@ void ReactionFSMInit(ReactionFSM *fsm, ReactionState initial) {
     }
 }
 
-ReactionState ReactionFSMNextState(ReactionFSM *fsm) {
-    float r = random_float(0.0f, 1.0f);
+ReactionState ReactionFSMNextState(ReactionFSM *fsm, float avgAllyHealth, int recentKills) {
+    float weights[REACT_STATE_COUNT];
+    float total = 0.0f;
+    int curr = static_cast<int>(fsm->current);
+
+    for(int j = 0; j < REACT_STATE_COUNT; ++j)
+        weights[j] = fsm->transition[curr][j];
+
+    if(avgAllyHealth < 50.0f)
+        weights[REACT_PANIC] += 0.25f;
+    if(recentKills > 0)
+        weights[REACT_CALM] += 0.15f * recentKills;
+
+    for(int j = 0; j < REACT_STATE_COUNT; ++j)
+        total += weights[j];
+
+    float r = random_float(0.0f, total);
     float acc = 0.0f;
-    int curr = (int)fsm->current;
     int next = curr;
-    for(int j=0;j<REACT_STATE_COUNT;j++) {
-        acc += fsm->transition[curr][j];
+    for(int j = 0; j < REACT_STATE_COUNT; ++j) {
+        acc += weights[j];
         if(r <= acc) { next = j; break; }
     }
+
     ReactionFSMUpdateCounts(fsm, curr, next);
     fsm->previous = fsm->current;
-    fsm->current = (ReactionState)next;
+    fsm->current = static_cast<ReactionState>(next);
     return fsm->current;
 }
 
@@ -673,7 +689,9 @@ void FSMPeriodicSave(float currentTime) {
 
 void BotUpdateReaction(bot_t *pBot) {
     if(!pBot) return;
-    ReactionState next = ReactionFSMNextState(&pBot->reactFsm);
+    float allyHealth = GetAverageAllyHealth(pBot);
+    int teamKills = CountRecentAllyKills(pBot);
+    ReactionState next = ReactionFSMNextState(&pBot->reactFsm, allyHealth, teamKills);
 
     if(pBot->pEdict->v.health < 20)
         next = REACT_PANIC;
@@ -686,5 +704,5 @@ void BotUpdateReaction(bot_t *pBot) {
        pBot->visEnemyCount > pBot->visAllyCount + 1)
         next = REACT_PANIC;
 
-    pBot->desired_reaction_state = (int)next;
+    pBot->desired_reaction_state = static_cast<int>(next);
 }

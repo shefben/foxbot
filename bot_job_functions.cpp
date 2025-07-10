@@ -3547,3 +3547,36 @@ int JobGraffitiArtist(bot_t *pBot) {
 
    return JOB_UNDERWAY;
 }
+
+// Returns the average health percentage of all living allies
+float GetAverageAllyHealth(const bot_t *pBot) {
+   int count = 0;
+   float total = 0.0f;
+   for (int i = 1; i <= gpGlobals->maxClients; ++i) {
+      edict_t *pPlayer = INDEXENT(i);
+      if (pPlayer && !pPlayer->free && IsAlive(pPlayer) &&
+          UTIL_GetTeam(pPlayer) == pBot->current_team) {
+         total += static_cast<float>(PlayerHealthPercent(pPlayer));
+         ++count;
+      }
+   }
+   if (count == 0)
+      return 100.0f;
+   return total / static_cast<float>(count);
+}
+
+// Counts the number of kills scored by allies since the previous call
+int CountRecentAllyKills(const bot_t *pBot) {
+   static int prevFrags[33] = {0};
+   int kills = 0;
+   for (int i = 1; i <= gpGlobals->maxClients; ++i) {
+      edict_t *pPlayer = INDEXENT(i);
+      if (pPlayer && !pPlayer->free && UTIL_GetTeam(pPlayer) == pBot->current_team) {
+         int frags = static_cast<int>(pPlayer->v.frags);
+         if (frags > prevFrags[i])
+            kills += frags - prevFrags[i];
+         prevFrags[i] = frags;
+      }
+   }
+   return kills;
+}

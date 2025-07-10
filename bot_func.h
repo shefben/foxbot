@@ -88,7 +88,7 @@ NavState NavFSMNextState(NavFSM *fsm);
 void BotUpdateNavigation(bot_t *pBot);
 void BotApplyNavState(bot_t *pBot);
 void ReactionFSMInit(ReactionFSM *fsm, ReactionState initial);
-ReactionState ReactionFSMNextState(ReactionFSM *fsm);
+ReactionState ReactionFSMNextState(ReactionFSM *fsm, float avgAllyHealth, int recentKills);
 void BotUpdateReaction(bot_t *pBot);
 
 // DrEvils functions.

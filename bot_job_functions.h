@@ -74,4 +74,7 @@ int JobDrownRecover(bot_t *pBot);
 int JobMeleeWarrior(bot_t *pBot);
 int JobGraffitiArtist(bot_t *pBot);
 
+float GetAverageAllyHealth(const bot_t *pBot);
+int CountRecentAllyKills(const bot_t *pBot);
+
 #endif // BOT_JOB_FUNCTIONS_H
