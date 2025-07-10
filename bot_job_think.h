@@ -102,11 +102,13 @@ void BotResetJobBuffer(bot_t *pBot);
 
 void BlacklistJob(bot_t *pBot, int jobType, float timeOut);
 
-bool BufferContainsJobType(const bot_t *pBot, int JobType);
+bool BufferContainsJobType(const bot_t *pBot, int JobType,
+                           int minPriority = PRIORITY_NONE);
 
 int BufferedJobIndex(const bot_t *pBot, int JobType);
 
-job_struct *InitialiseNewJob(const bot_t *pBot, int newJobType);
+job_struct *InitialiseNewJob(const bot_t *pBot, int newJobType,
+                             bool allowExisting = false);
 
 bool SubmitNewJob(bot_t *pBot, int newJobType, job_struct *newJob);
 

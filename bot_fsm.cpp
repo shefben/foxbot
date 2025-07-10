@@ -407,11 +407,9 @@ AimState AimFSMNextState(AimFSM *fsm) {
 void BotUpdateJob(bot_t *pBot) {
     if(!pBot) return;
     int next = JobFSMNextState(&pBot->jobFsm);
-    if(!BufferContainsJobType(pBot, next)) {
-        job_struct *newJob = InitialiseNewJob(pBot, next);
-        if(newJob)
-            SubmitNewJob(pBot, next, newJob);
-    }
+    job_struct *newJob = InitialiseNewJob(pBot, next, true);
+    if(newJob)
+        SubmitNewJob(pBot, next, newJob);
 }
 
 void BotUpdateWeapon(bot_t *pBot) {
