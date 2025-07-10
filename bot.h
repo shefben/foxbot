@@ -340,6 +340,14 @@ static inline int OpponentFavoredWaypoint(const OpponentInfo &info) {
    return best;
 }
 
+typedef struct {
+   edict_t *bot;
+   edict_t *enemy;
+   int combat_state;
+   int nav_state;
+   float last_update;
+} NearbyBotState;
+
 // this is the core data structure used for each bot
 typedef struct {
    bool is_used; // set true to indicate an active bot
@@ -477,6 +485,9 @@ typedef struct {
    Vector lastAllyVector;       // where the last seen ally was seen last
    float f_lastAllySeenTime;    // when the bot last saw an ally
    float f_alliedMedicSeenTime; // when the bot last saw a friendly medic
+
+   short nearbyBotCount;
+   NearbyBotState nearbyBots[MAX_NEARBY_BOTS];
 
    // variables related to tracking of other players /////////////
    //	short track_reason;  // why the bot is tracking who they are(not used yet)
@@ -634,6 +645,7 @@ enum entity_waterlevels {
 };
 
 #define MAX_BOTS 32
+#define MAX_NEARBY_BOTS 4
 
 #define MAX_TEAMS 32
 #define MAX_TEAMNAME_LENGTH 16
