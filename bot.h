@@ -177,7 +177,7 @@ class chatClass {
  public:
    chatClass(); // constructor, sets up the names of the chat section headers
 
-   void readChatFile(); // this processes the bot chat file
+   void readChatFile(const char *filename = nullptr); // load chat strings from file
 
    // this will fill msg with a randomly selected string from the
    // specified chat section

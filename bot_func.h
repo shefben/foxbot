@@ -47,7 +47,7 @@ TeamSignalInfo BotCurrentSignal(int team);
 
 void BotSpawnInit(bot_t *pBot);
 
-void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char *arg3, const char *arg4);
+void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char *arg3, const char *arg4, const char *traitFile = nullptr, const char *chatFile = nullptr);
 
 void BotStartGame(bot_t *pBot);
 
