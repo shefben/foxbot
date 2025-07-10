@@ -212,6 +212,7 @@ static bool BotUpdateRoute(bot_t *pBot);
 static void BotHandleLadderTraffic(bot_t *pBot);
 static void BotCheckForRocketJump(bot_t *pBot);
 static void BotCheckForConcJump(bot_t *pBot);
+static Vector BotRadialAvoidanceVector(const bot_t *pBot);
 static int FindTriangle(const Vector &p);
 static bool PointInTriangle(const Vector &p, const NavTriangle &t);
 static void BuildNavMesh();
@@ -741,6 +742,21 @@ void BotNavigateWaypointless(bot_t *pBot) {
    }
 
    BotFallenOffCheck(pBot);
+
+   // adjust movement direction based on nearby obstacles
+   Vector avoid = BotRadialAvoidanceVector(pBot);
+   if (avoid.Length2D() > 0.1f) {
+      UTIL_MakeVectors(pBot->pEdict->v.v_angle);
+      Vector moveDir = gpGlobals->v_forward + avoid.Normalize();
+      moveDir.z = 0;
+      if (moveDir.Length2D() > 0.0f) {
+         const Vector ang = UTIL_VecToAngles(moveDir);
+         pBot->pEdict->v.ideal_yaw = ang.y;
+         BotFixIdealYaw(pBot->pEdict);
+      }
+      const float side = DotProduct(avoid, gpGlobals->v_right);
+      pBot->f_side_speed += side * pBot->f_max_speed;
+   }
 
    // if not obstructed by a player is the bot obstructed by anything else?
    if (BotContactThink(pBot) == nullptr) {
@@ -1825,6 +1841,33 @@ bool BotCheckWallOnRight(const bot_t *pBot) {
    }
 
    return false;
+}
+
+// Perform a set of radial raycasts around the bot to build a simple
+// avoidance vector. Each ray checks for nearby world geometry or props.
+static Vector BotRadialAvoidanceVector(const bot_t *pBot) {
+   const int rays = 8;
+   const float radius = 60.0f;
+   Vector avoid(0, 0, 0);
+
+   Vector start = pBot->pEdict->v.origin;
+   start.z = pBot->pEdict->v.absmin.z + 36.0f; // roughly mid body height
+
+   for (int i = 0; i < rays; ++i) {
+      const float yaw = pBot->pEdict->v.v_angle.y + i * (360.0f / rays);
+      UTIL_MakeVectors(Vector(0.0f, yaw, 0.0f));
+      Vector end = start + gpGlobals->v_forward * radius;
+
+      TraceResult tr;
+      UTIL_TraceLine(start, end, dont_ignore_monsters, pBot->pEdict->v.pContainingEntity, &tr);
+
+      if (tr.flFraction < 1.0f) {
+         Vector dir = (end - tr.vecEndPos).Normalize();
+         avoid = avoid + dir * (1.0f - tr.flFraction);
+      }
+   }
+
+   return avoid;
 }
 
 // This function returns the index of a waypoint suitable for building a
