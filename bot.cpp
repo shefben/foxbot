@@ -475,6 +475,8 @@ void BotSpawnInit(bot_t *pBot) {
    pBot->scoreAtSpawn = static_cast<int>(pBot->pEdict->v.frags);
    pBot->killStreak = 0;
    pBot->deathStreak = 0;
+   pBot->roundKills = 0;
+   pBot->roundDeaths = 0;
    pBot->f_lastFlagCapture = 0.0f;
    pBot->frustration = 0.0f;
    pBot->excitement = 0.0f;

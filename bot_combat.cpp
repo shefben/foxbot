@@ -251,6 +251,7 @@ void BotMetricOnKill(bot_t *bot) {
    if(bot->excitement > 1.0f) bot->excitement = 1.0f;
    bot->frustration *= 0.5f;
    bot->killStreak++;
+   bot->roundKills++;
    bot->deathStreak = 0;
    CheckStreakComments(bot);
 }
@@ -265,6 +266,7 @@ void BotMetricOnDeath(bot_t *bot) {
    if(bot->frustration > 1.0f) bot->frustration = 1.0f;
    bot->excitement *= 0.5f;
    bot->deathStreak++;
+   bot->roundDeaths++;
    bot->killStreak = 0;
    CheckStreakComments(bot);
 }

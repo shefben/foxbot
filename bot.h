@@ -505,6 +505,8 @@ typedef struct {
    int scoreAtSpawn;            // what their score was when they last spawned
    int killStreak;              // consecutive kills since last death
    int deathStreak;             // consecutive deaths since last kill
+   int roundKills;              // kills made during the current round
+   int roundDeaths;             // deaths suffered during the current round
    float f_lastFlagCapture;     // time when this bot last captured a flag
 
    // weapon related variables /////////////////
