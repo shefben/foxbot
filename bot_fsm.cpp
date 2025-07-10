@@ -1,4 +1,5 @@
 #include "bot_fsm.h"
+#include "bot_rl.h"
 #include "bot.h"
 #include "bot_job_think.h"
 #include "bot_markov.h"
@@ -53,6 +54,7 @@ void LoadFSMCounts() {
     load_counts(fname, &gNavCounts[0][0], NAV_STATE_COUNT);
     UTIL_BuildFileName(fname, 255, (char*)"bot_fsm_react.dat", NULL);
     load_counts(fname, &gReactionCounts[0][0], REACT_STATE_COUNT);
+    RL_LoadScores();
 }
 
 void SaveFSMCounts() {
@@ -75,6 +77,7 @@ void SaveFSMCounts() {
     save_counts(fname, &gNavCounts[0][0], NAV_STATE_COUNT);
     UTIL_BuildFileName(fname, 255, (char*)"bot_fsm_react.dat", NULL);
     save_counts(fname, &gReactionCounts[0][0], REACT_STATE_COUNT);
+    RL_SaveScores();
 }
 
 static void BotFSMUpdateCounts(BotFSM *fsm, int from, int to) {
@@ -101,12 +104,19 @@ void BotFSMInit(BotFSM *fsm, BotState initial) {
 }
 
 BotState BotFSMNextState(BotFSM *fsm) {
-    float r = random_float(0.0f, 1.0f);
-    float acc = 0.0f;
+    float weights[BOT_STATE_COUNT];
+    float total = 0.0f;
     int curr = static_cast<int>(fsm->current);
+    for(int j = 0; j < BOT_STATE_COUNT; ++j) {
+        weights[j] = fsm->transition[curr][j] * RL_GetStateWeight(static_cast<BotState>(j));
+        total += weights[j];
+    }
+
+    float r = random_float(0.0f, total);
+    float acc = 0.0f;
     int next = curr;
     for(int j = 0; j < BOT_STATE_COUNT; ++j) {
-        acc += fsm->transition[curr][j];
+        acc += weights[j];
         if(r <= acc) {
             next = j;
             break;

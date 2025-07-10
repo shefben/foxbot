@@ -202,6 +202,7 @@ sourceFiles = files (
    'h_export.cpp',
    'linkfunc.cpp',
    'meta_api.cpp',
+   'bot_rl.cpp',
    'sdk_util.cpp',
    'util.cpp',
    'version.cpp',
