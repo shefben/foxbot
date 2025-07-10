@@ -300,7 +300,7 @@ void BotSpawnInit(bot_t *pBot) {
    pBot->desired_aim_state = AIM_BODY;
    pBot->desired_reaction_state = REACT_CALM;
    pBot->fake_ping = random_long(20, 80);
-   pBot->f_next_ping_update = gpGlobals->time + 2.0f;
+   pBot->f_next_ping_update = gpGlobals->time + random_float(1.5f, 2.5f);
 
    pBot->job[pBot->currentJob].phase = 0;
 
@@ -3645,11 +3645,16 @@ void BotThink(bot_t *pBot) {
    FSMPeriodicSave(pBot->f_think_time);
 
    if(pBot->f_next_ping_update <= pBot->f_think_time) {
+      int base_ping;
       if(random_long(0,50)==0)
-         pBot->fake_ping = random_long(120,150);
+         base_ping = random_long(120,150);
       else
-         pBot->fake_ping = random_long(40,90);
-      pBot->f_next_ping_update = pBot->f_think_time + 2.0f;
+         base_ping = random_long(40,90);
+      base_ping += random_long(-5,5);
+      if(base_ping < 20)
+         base_ping = 20;
+      pBot->fake_ping = base_ping;
+      pBot->f_next_ping_update = pBot->f_think_time + random_float(1.5f, 2.5f);
    }
 
    pBot->pEdict->v.button = 0;
