@@ -273,6 +273,7 @@ typedef struct {
    int respawn_state;
    unsigned need_to_initialize : 1;
    unsigned not_started : 1;
+   unsigned round_end : 1;
    char name[BOT_NAME_LEN + 1];
    char skin[BOT_SKIN_LEN + 1];
    int bot_skill;

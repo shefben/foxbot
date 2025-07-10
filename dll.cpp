@@ -36,6 +36,7 @@
 #include "bot_func.h"
 #include "bot_weapons.h"
 #include "bot_fsm.h"
+#include "bot_rl.h"
 #include "waypoint.h"
 #include "bot_markov.h"
 
@@ -690,6 +691,11 @@ void GameDLLShutdown() {
    char mkfile[256];
    UTIL_BuildFileName(mkfile, 255, (char*)"foxbot_markov.dat", NULL);
    MarkovSave(mkfile);
+   for(int i=0;i<32;i++) {
+      if(bots[i].is_used)
+         RL_RecordRoundEnd(&bots[i].fsm);
+   }
+   RL_SaveScores();
    SaveFSMCounts();
    if (!mr_meta && other_gFunctionTable.pfnGameShutdown)
       (*other_gFunctionTable.pfnGameShutdown)();
@@ -2405,11 +2411,19 @@ void StartFrame() { // v7 last frame timing
       edict_t *pPlayer;
       static float check_server_cmd;
       check_server_cmd = gpGlobals->time;
-      static int i, index, player_index, bot_index;
-      static float previous_time = -1.0f;
-      static float client_update_time = 0.0;
-      clientdata_s cd;
-      int count;
+   static int i, index, player_index, bot_index;
+   static float previous_time = -1.0f;
+   static float client_update_time = 0.0;
+   clientdata_s cd;
+   int count;
+
+   for(int bi=0; bi<32; ++bi) {
+      if(bots[bi].is_used && bots[bi].round_end) {
+         RL_RecordRoundEnd(&bots[bi].fsm);
+         bots[bi].round_end = 0;
+         RL_SaveScores();
+      }
+   }
       // if a new map has started then (MUST BE FIRST IN StartFrame)...
       if (strcmp(STRING(gpGlobals->mapname), prevmapname) != 0) {
          first_player = nullptr;
