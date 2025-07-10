@@ -28,6 +28,7 @@
 #include "extdll.h"
 #include "tf_defs.h"
 #include <meta_api.h>
+#include <weaponinfo.h>
 
 #include "list.h"
 
@@ -2155,11 +2156,21 @@ static void BotAttackerCheck(bot_t *pBot) {
             continue;
 
          // ignore enemies who don't have the fire button pressed
-         // TODO: ignore silent weapons(e.g. the Medikit and charging sniper rifle)
-         if (!(pPlayer->v.button & IN_ATTACK)) {
-            // they don't have the attack button pressed,
+         bool hasSilentWeapon = false;
+         if (mod_id == TFC_DLL) {
+            weapon_data_t wpnData{};
+            if (MDLL_GetWeaponData(pPlayer, &wpnData)) {
+               if (wpnData.m_iId == TF_WEAPON_MEDIKIT ||
+                   (wpnData.m_iId == TF_WEAPON_SNIPERRIFLE && (pPlayer->v.button & IN_ATTACK)))
+                  hasSilentWeapon = true;
+            }
+         }
+
+         if (!(pPlayer->v.button & IN_ATTACK) || hasSilentWeapon) {
+            // they don't have the attack button pressed or wield a silent weapon,
             // can we hear their footsteps instead?
-            if (UTIL_FootstepsHeard(pBot->pEdict, pPlayer) == false)
+            if (UTIL_FootstepsHeard(pBot->pEdict, pPlayer) == false &&
+                pBot->f_injured_time + 0.3f < pBot->f_think_time)
                continue;
          }
 
