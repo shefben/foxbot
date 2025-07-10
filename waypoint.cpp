@@ -49,6 +49,9 @@
 #include "list.h"
 List<char *> commanders;
 
+#include <queue>
+#include <unordered_map>
+
 int last_area = -1;
 bool area_on_last;
 
@@ -123,6 +126,8 @@ static void WaypointFloyds(unsigned int *shortest_path, unsigned int *from_to);
 static void WaypointRouteInit();
 static bool WaypointLoadVersion4(FILE *bfp, int number_of_waypoints);
 static bool WaypointDeleteAimArtifact(const edict_t *pEntity);
+static int WaypointAddInternal(const Vector &origin);
+static bool WaypointGenerateFromSpawn();
 
 void WaypointDebug() {
    fp = UTIL_OpenFoxbotLog();
@@ -219,6 +224,99 @@ void WaypointInit() {
       shortest_path[i] = nullptr;
       from_to[i] = nullptr;
    }
+}
+
+// helper for temporary waypoint creation
+static int WaypointAddInternal(const Vector &origin) {
+   if (num_waypoints >= MAX_WAYPOINTS)
+      return -1;
+
+   const int index = num_waypoints++;
+   waypoints[index].flags = 0;
+   waypoints[index].script_flags = 0;
+   waypoints[index].origin = origin;
+   wp_display_time[index] = gpGlobals->time;
+   paths[index] = nullptr;
+   return index;
+}
+
+// generate waypoints using BFS from first spawn point
+static bool WaypointGenerateFromSpawn() {
+   edict_t *spawn = FIND_ENTITY_BY_CLASSNAME(nullptr, "info_player_deathmatch");
+   if (FNullEnt(spawn))
+      spawn = FIND_ENTITY_BY_CLASSNAME(nullptr, "info_player_start");
+   if (FNullEnt(spawn))
+      spawn = FIND_ENTITY_BY_CLASSNAME(nullptr, "info_player_teamspawn");
+   if (FNullEnt(spawn)) {
+      ALERT(at_console, "No spawn point found for temporary waypoints.\n");
+      return false;
+   }
+
+   constexpr float grid = 128.0f;
+
+   struct GridKey {
+      int x, y, z;
+      bool operator==(const GridKey &other) const {
+         return x == other.x && y == other.y && z == other.z;
+      }
+   };
+
+   struct GridKeyHash {
+      size_t operator()(const GridKey &k) const noexcept {
+         size_t h = static_cast<size_t>(k.x) * 73856093u;
+         h ^= static_cast<size_t>(k.y) * 19349663u;
+         h ^= static_cast<size_t>(k.z) * 83492791u;
+         return h;
+      }
+   };
+
+   std::queue<std::pair<Vector, int>> q;
+   std::unordered_map<GridKey, int, GridKeyHash> visited;
+
+   Vector start = spawn->v.origin;
+   const GridKey startKey{static_cast<int>(floor(start.x / grid)),
+                         static_cast<int>(floor(start.y / grid)),
+                         static_cast<int>(floor(start.z / grid))};
+   const int startIndex = WaypointAddInternal(start);
+   if (startIndex == -1)
+      return false;
+
+   visited[startKey] = startIndex;
+   q.push({start, startIndex});
+
+   const Vector directions[6] = {Vector(grid, 0, 0),   Vector(-grid, 0, 0),
+                                 Vector(0, grid, 0),   Vector(0, -grid, 0),
+                                 Vector(0, 0, 50),     Vector(0, 0, -50)};
+
+   while (!q.empty() && num_waypoints < 256) {
+      const auto [pos, idx] = q.front();
+      q.pop();
+      for (const auto &dir : directions) {
+         const Vector next = pos + dir;
+         const GridKey key{static_cast<int>(floor(next.x / grid)),
+                           static_cast<int>(floor(next.y / grid)),
+                           static_cast<int>(floor(next.z / grid))};
+         if (visited.find(key) != visited.end())
+            continue;
+
+         if (!WaypointReachable(pos, next, spawn))
+            continue;
+
+         const int ni = WaypointAddInternal(next);
+         if (ni == -1)
+            return true;
+         visited[key] = ni;
+         if (WaypointAddPath(idx, ni))
+            g_waypoint_paths = true;
+         if (WaypointAddPath(ni, idx))
+            g_waypoint_paths = true;
+         q.push({next, ni});
+      }
+   }
+
+   ALERT(at_console, "Generated %d temporary waypoints.\n", num_waypoints);
+   WaypointRouteInit();
+   return num_waypoints > 0;
 }
 
 // add a path from one waypoint (add_index) to another (path_index)...
@@ -1671,6 +1769,13 @@ bool WaypointLoad(edict_t *pEntity) {
 
       if (IS_DEDICATED_SERVER())
          printf("waypoint file %s not found\n", filename);
+
+      // attempt to generate temporary waypoints
+      if (WaypointGenerateFromSpawn()) {
+         if (pEntity)
+            ClientPrint(pEntity, HUD_PRINTNOTIFY, "Temporary waypoints generated.\n");
+         return true;
+      }
 
       return false;
    }
