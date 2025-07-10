@@ -31,6 +31,9 @@
 // standard amount of time to reach the bots current waypoint
 #define BOT_WP_DEADLINE 7.0
 
+// coarse navigation zones
+enum MapZone { ZONE_UNKNOWN = 0, ZONE_BASE, ZONE_MID, ZONE_ENEMY_BASE };
+
 void BotUpdateHomeInfo(const bot_t *pBot);
 
 void BotFindCurrentWaypoint(bot_t *pBot);
@@ -90,5 +93,10 @@ bool BotFindTeleportShortCut(bot_t *pBot);
 // nav mesh support
 void BuildNavMesh();
 bool NavMeshNavigate(bot_t *pBot, const Vector &goal);
+void AddDangerSpot(const Vector &pos);
+void AddAmbushSpot(const Vector &pos);
+bool IsDangerSpot(const Vector &pos);
+void LoadMapSpotData();
+void SaveMapSpotData();
 
 #endif // BOT_NAVIGATE_H

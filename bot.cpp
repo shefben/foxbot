@@ -199,6 +199,8 @@ static void EvaluateTeamStrategy();
 static int ChooseBalancedClassForTeam(int team);
 static void BotChangeClassBalanced(bot_t *pBot, int cls);
 
+static bool LoadBotTraits(bot_trait_struct *trait, const char *file);
+
 inline edict_t *CREATE_FAKE_CLIENT(const char *netname) {
    if (debug_engine) {
       fp = UTIL_OpenFoxbotLog();
@@ -593,6 +595,41 @@ static int BotAssignDefaultSkill() {
       return static_cast<int>(random_long(botskill_upper, botskill_lower));
 }
 
+static bool LoadBotTraits(bot_trait_struct *trait, const char *file) {
+   if(!file || !*file)
+      return false;
+
+   char filename[256];
+   UTIL_BuildFileName(filename, 255, (char*)file, nullptr);
+   FILE *fp = fopen(filename, "r");
+   if(!fp)
+      return false;
+
+   char buf[128];
+   while(UTIL_ReadFileLine(buf, sizeof(buf), fp)) {
+      if(buf[0] == '#' || buf[0] == '\0')
+         continue;
+      char key[64], val[64];
+      if(sscanf(buf, "%63[^=]=%63s", key, val) != 2 && sscanf(buf, "%63s %63s", key, val) != 2)
+         continue;
+      for(char *p=key; *p; ++p) *p = static_cast<char>(tolower(*p));
+      if(strcmp(key, "aggression") == 0)
+         trait->aggression = atoi(val);
+      else if(strcmp(key, "fairplay") == 0)
+         trait->fairplay = atoi(val);
+      else if(strcmp(key, "faveclass") == 0)
+         trait->faveClass = atoi(val);
+      else if(strcmp(key, "health") == 0)
+         trait->health = atoi(val);
+      else if(strcmp(key, "humour") == 0)
+         trait->humour = atoi(val);
+      else if(strcmp(key, "camper") == 0)
+         trait->camper = atoi(val) != 0;
+   }
+   fclose(fp);
+   return true;
+}
+
 void BotPickName(char *name_buffer) {
    int index;
 
@@ -652,7 +689,7 @@ void BotPickName(char *name_buffer) {
    strcpy(name_buffer, bot_names[name_index]);
 }
 
-void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char *arg3, const char *arg4) {
+void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char *arg3, const char *arg4, const char *traitFile, const char *chatFile) {
    // indicate which models are currently used for random model allocation
    static bool valve_skin_used[VALVE_MAX_SKINS] = {false, false, false, false, false, false, false, false, false, false};
 
@@ -1052,9 +1089,16 @@ void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char 
          pBot->trait.fairplay = 600;
          pBot->trait.faveClass = 3;
          pBot->trait.health = 50;
-         pBot->trait.humour = 50;
-         pBot->trait.camper = true;
-      }
+      pBot->trait.humour = 50;
+      pBot->trait.camper = true;
+   }
+
+      // override traits if a custom trait file was specified
+      LoadBotTraits(&pBot->trait, traitFile);
+
+      // load a custom chat file if specified
+      if(chatFile && *chatFile)
+         chat.readChatFile(chatFile);
 
       pBot->f_humour_time = pBot->f_think_time + random_float(60.0, 180.0);
       pBot->frustration = 0.0f;

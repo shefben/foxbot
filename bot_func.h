@@ -29,19 +29,25 @@
 #define BOT_FUNC_H
 
 #include "bot_fsm.h"
+#include "extdll.h"
 
-enum TeamSignalType { SIG_NONE = 0, SIG_ATTACK };
+enum TeamSignalType { SIG_NONE = 0, SIG_ATTACK, SIG_ENEMY_SPOTTED, SIG_ATTACK_PLAN };
+
+struct TeamSignalInfo {
+    TeamSignalType type;
+    Vector location;
+};
 
 void BotRecordNearbyBots(bot_t *pBot);
 edict_t *BotGetSharedEnemy(const bot_t *pBot);
-void BotBroadcastSignal(int team, TeamSignalType signal, float duration);
-TeamSignalType BotCurrentSignal(int team);
+void BotBroadcastSignal(int team, TeamSignalType signal, float duration, const Vector &location = Vector(0,0,0));
+TeamSignalInfo BotCurrentSignal(int team);
 
 // prototypes of bot functions...
 
 void BotSpawnInit(bot_t *pBot);
 
-void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char *arg3, const char *arg4);
+void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char *arg3, const char *arg4, const char *traitFile = nullptr, const char *chatFile = nullptr);
 
 void BotStartGame(bot_t *pBot);
 

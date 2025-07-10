@@ -37,6 +37,7 @@
 #include "bot_weapons.h"
 #include "bot_fsm.h"
 #include "bot_rl.h"
+#include "bot_navigate.h"
 #include "waypoint.h"
 #include "bot_markov.h"
 #include "bot_memory.h"
@@ -738,10 +739,13 @@ chatClass::chatClass() {
 }
 
 // This function is responsible for reading in the chat from the bot chat file.
-void chatClass::readChatFile() {
+void chatClass::readChatFile(const char *customFile) {
    char filename[256];
 
-   UTIL_BuildFileName(filename, 255, "foxbot_chat.txt", nullptr);
+   if(customFile && *customFile)
+      UTIL_BuildFileName(filename, 255, (char*)customFile, nullptr);
+   else
+      UTIL_BuildFileName(filename, 255, "foxbot_chat.txt", nullptr);
    FILE *bfp = fopen(filename, "r");
 
    if (bfp == nullptr) {
@@ -1387,6 +1391,8 @@ void ClientCommand(edict_t *pEntity) {
       const char *arg2 = CMD_ARGV(2);
       const char *arg3 = CMD_ARGV(3);
       const char *arg4 = CMD_ARGV(4);
+      const char *arg5 = CMD_ARGV(5);
+      const char *arg6 = CMD_ARGV(6);
       // char msg[80];
       if (debug_engine) {
          fp = UTIL_OpenFoxbotLog();
@@ -1439,17 +1445,25 @@ void ClientCommand(edict_t *pEntity) {
             if (*arg4 != 0)
                fprintf(fp, " '%s'(4)", arg4);
          }
+         if (arg5 != nullptr) {
+            if (*arg5 != 0)
+               fprintf(fp, " '%s'(5)", arg5);
+         }
+         if (arg6 != nullptr) {
+            if (*arg6 != 0)
+               fprintf(fp, " '%s'(6)", arg6);
+         }
          fprintf(fp, "\n");
          fclose(fp);
       }
 
       if (FStrEq(pcmd, "addbot") || FStrEq(pcmd, "foxbot_addbot")) {
          if (arg2 != nullptr && *arg2 != 0)
-            BotCreate(pEntity, arg1, arg2, arg3, arg4);
+            BotCreate(pEntity, arg1, arg2, arg3, arg4, arg5, arg6);
          else {
             char c[8];
             strcpy(c, "-1");
-            BotCreate(pEntity, arg1, c, arg3, arg4);
+            BotCreate(pEntity, arg1, c, arg3, arg4, arg5, arg6);
          }
          bot_check_time = gpGlobals->time + 5.0;
          if (mr_meta)
@@ -2428,13 +2442,17 @@ void StartFrame() { // v7 last frame timing
    clientdata_s cd;
    int count;
 
+   bool savedSpots = false;
    for(int bi=0; bi<32; ++bi) {
       if(bots[bi].is_used && bots[bi].round_end) {
          RL_RecordRoundEnd(&bots[bi].fsm, &bots[bi]);
          bots[bi].round_end = 0;
          RL_SaveScores();
+         savedSpots = true;
       }
    }
+   if(savedSpots)
+      SaveMapSpotData();
       // if a new map has started then (MUST BE FIRST IN StartFrame)...
       if (strcmp(STRING(gpGlobals->mapname), prevmapname) != 0) {
          first_player = nullptr;
@@ -2533,7 +2551,7 @@ void StartFrame() { // v7 last frame timing
             if (mod_id != TFC_DLL) {
                char c_skill[2];
                sprintf(c_skill, "%d", bots[index1].bot_skill);
-               BotCreate(nullptr, bots[index1].skin, bots[index1].name, c_skill, nullptr);
+               BotCreate(nullptr, bots[index1].skin, bots[index1].name, c_skill, nullptr, nullptr, nullptr);
             } else {
                char c_skill[2];
                char c_team[2];
@@ -2542,9 +2560,9 @@ void StartFrame() { // v7 last frame timing
                sprintf(c_team, "%d", bots[index1].bot_team);
                sprintf(c_class, "%d", bots[index1].bot_class);
                if (mod_id == TFC_DLL)
-                  BotCreate(nullptr, nullptr, nullptr, bots[index1].name, c_skill);
+                  BotCreate(nullptr, nullptr, nullptr, bots[index1].name, c_skill, nullptr, nullptr);
                else
-                  BotCreate(nullptr, c_team, c_class, bots[index1].name, c_skill);
+                  BotCreate(nullptr, c_team, c_class, bots[index1].name, c_skill, nullptr, nullptr);
             }
             respawn_time = gpGlobals->time + 2.0; // set next respawn time
             bot_check_time = gpGlobals->time + 5.0;
@@ -2680,7 +2698,7 @@ void StartFrame() { // v7 last frame timing
                }
             }
             if (strcmp(cmd, "addbot") == 0) {
-               BotCreate(nullptr, arg1, arg2, arg3, arg4);
+               BotCreate(nullptr, arg1, arg2, arg3, arg4, nullptr, nullptr);
                bot_check_time = gpGlobals->time + 5.0;
             } else if (strcmp(cmd, "min_bots") == 0) {
                changeBotSetting("min_bots", &min_bots, arg1, -1, 31, SETTING_SOURCE_SERVER_COMMAND);
@@ -2846,7 +2864,7 @@ void StartFrame() { // v7 last frame timing
             varyBotTotal(); // if there are currently less than the maximum number of players
                             // then add another bot using the default skill level...
          if ((count1 < interested_bots || bot_total_varies == 0) && count1 < max_bots && max_bots != -1) {
-            BotCreate(nullptr, nullptr, nullptr, nullptr, nullptr);
+            BotCreate(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
          } // do bot max_bot kick here... if there are currently more than the minimum number of bots running then kick one of the bots off the server...
          if ((count1 > interested_bots && bot_total_varies || count1 > max_bots) && max_bots != -1) {
             // count the number of bots present
@@ -2933,6 +2951,7 @@ void StartFrame() { // v7 last frame timing
       script_loaded = false;
       script_parsed = false;
       strcpy(prevmapname, STRING(gpGlobals->mapname));
+      LoadMapSpotData();
       char filename[256];
       char mapname[64];
       int i; // reset known team data on map change
@@ -5009,6 +5028,8 @@ static void ProcessBotCfgFile() {
    cmd_index = 0;
    const char *cmd = cmd_line;
    char *arg1 = arg2 = arg3 = arg4 = nullptr;
+   char *arg5 = nullptr;
+   char *arg6 = nullptr;
 
    // skip to blank or end of string...
    while (cmd_line[cmd_index] != ' ' && cmd_line[cmd_index] != 0 && cmd_index < 510)
@@ -5035,6 +5056,20 @@ static void ProcessBotCfgFile() {
             if (cmd_line[cmd_index] == ' ' && cmd_index < 510) {
                cmd_line[cmd_index++] = 0;
                arg4 = &cmd_line[cmd_index];
+
+               while (cmd_line[cmd_index] != ' ' && cmd_line[cmd_index] != 0 && cmd_index < 510)
+                  cmd_index++;
+               if (cmd_line[cmd_index] == ' ' && cmd_index < 510) {
+                  cmd_line[cmd_index++] = 0;
+                  arg5 = &cmd_line[cmd_index];
+
+                  while (cmd_line[cmd_index] != ' ' && cmd_line[cmd_index] != 0 && cmd_index < 510)
+                     cmd_index++;
+                  if (cmd_line[cmd_index] == ' ' && cmd_index < 510) {
+                     cmd_line[cmd_index++] = 0;
+                     arg6 = &cmd_line[cmd_index];
+                  }
+               }
             }
          }
       }
@@ -5042,12 +5077,12 @@ static void ProcessBotCfgFile() {
 
    if (strcmp(cmd, "addbot") == 0) {
       if (IS_DEDICATED_SERVER()) {
-         printf("[Config] add bot (%s,%s,%s,%s)\n", arg1, arg2, arg3, arg4);
+         printf("[Config] add bot (%s,%s,%s,%s,%s,%s)\n", arg1, arg2, arg3, arg4, arg5 ? arg5 : "", arg6 ? arg6 : "");
       } else {
-         sprintf(msg, "[Config] add bot (%s,%s,%s,%s)\n", arg1, arg2, arg3, arg4);
+         sprintf(msg, "[Config] add bot (%s,%s,%s,%s,%s,%s)\n", arg1, arg2, arg3, arg4, arg5 ? arg5 : "", arg6 ? arg6 : "");
          ALERT(at_console, msg);
       }
-      BotCreate(nullptr, arg1, arg2, arg3, arg4);
+      BotCreate(nullptr, arg1, arg2, arg3, arg4, arg5, arg6);
 
       // have to delay here or engine gives "Tried to write to
       // uninitialized sizebuf_t" error and crashes...
