@@ -37,11 +37,16 @@
 #include "bot_job_think.h"
 #include "bot_navigate.h"
 #include "bot_weapons.h"
+#if defined(_MSC_VER) && _MSC_VER <= 1200
+#include <set>
+#else
 #include <unordered_set>
+#endif
 #include <cmath>
 #include <cstdio>
 #include <climits>
 #include <vector>
+#include "compat.h"
 #include <queue>
 #include <set>
 #include <algorithm>
@@ -123,7 +128,8 @@ void SaveMapSpotData() {
 }
 
 void AddDangerSpot(const Vector &pos) {
-   for(auto &s : g_dangerSpots) {
+   for(size_t i=0; i<g_dangerSpots.size(); ++i) {
+      Spot &s = g_dangerSpots[i];
       if((s.origin - pos).Length() < 128.0f) {
          if(s.count < INT_MAX) ++s.count;
          return;
@@ -134,7 +140,8 @@ void AddDangerSpot(const Vector &pos) {
 }
 
 void AddAmbushSpot(const Vector &pos) {
-   for(auto &s : g_ambushSpots) {
+   for(size_t i=0; i<g_ambushSpots.size(); ++i) {
+      Spot &s = g_ambushSpots[i];
       if((s.origin - pos).Length() < 128.0f) {
          if(s.count < INT_MAX) ++s.count;
          return;
@@ -164,6 +171,8 @@ static constexpr float COVERAGE_STEP = 256.0f;
 void CoverageRecord(const Vector &pos) {
    CoverageCell key{static_cast<int>(floor(pos.x / COVERAGE_STEP)),
                     static_cast<int>(floor(pos.y / COVERAGE_STEP))};
+   if(g_coverage.size() > 10000)
+      g_coverage.clear();
    g_coverage.insert(key);
 }
 
@@ -185,7 +194,8 @@ Vector CoveragePickUnvisited(const Vector &origin) {
 }
 
 bool IsDangerSpot(const Vector &pos) {
-   for(const auto &s : g_dangerSpots) {
+   for(size_t i=0; i<g_dangerSpots.size(); ++i) {
+      const Spot &s = g_dangerSpots[i];
       if((s.origin - pos).Length() < 128.0f)
          return true;
    }
@@ -418,17 +428,18 @@ static void BuildNavMesh() {
       }
    }
 
-   auto V = [&](int x, int y) { return samples[y * w + x]; };
+#define NAV_SAMPLE(x, y) samples[(y) * w + (x)]
    for (int y = 0; y < h - 1; ++y) {
       for (int x = 0; x < w - 1; ++x) {
-         NavTriangle t1{V(x, y), V(x, y + 1), V(x + 1, y + 1)};
+         NavTriangle t1{NAV_SAMPLE(x, y), NAV_SAMPLE(x, y + 1), NAV_SAMPLE(x + 1, y + 1)};
          t1.center = (t1.a + t1.b + t1.c) / 3.0f;
-         NavTriangle t2{V(x, y), V(x + 1, y + 1), V(x + 1, y)};
+         NavTriangle t2{NAV_SAMPLE(x, y), NAV_SAMPLE(x + 1, y + 1), NAV_SAMPLE(x + 1, y)};
          t2.center = (t2.a + t2.b + t2.c) / 3.0f;
          g_navMesh.push_back(t1);
          g_navMesh.push_back(t2);
       }
    }
+#undef NAV_SAMPLE
 
    for (size_t i = 0; i < g_navMesh.size(); ++i) {
       for (size_t j = i + 1; j < g_navMesh.size(); ++j) {
@@ -456,6 +467,10 @@ struct Node {
    int parent;
 };
 
+struct NodeCmp {
+   bool operator()(const Node &a, const Node &b) const { return a.f > b.f; }
+};
+
 static bool NavMeshPath(const Vector &start, const Vector &goal, std::vector<int> &r_tris) {
    BuildNavMesh();
    int startTri = FindTriangle(start);
@@ -463,8 +478,7 @@ static bool NavMeshPath(const Vector &start, const Vector &goal, std::vector<int
    if (startTri < 0 || goalTri < 0)
       return false;
 
-   std::priority_queue<Node, std::vector<Node>, bool (*)(const Node &, const Node &)> open(
-       [](const Node &a, const Node &b) { return a.f > b.f; });
+   std::priority_queue<Node, std::vector<Node>, NodeCmp> open;
    std::vector<float> best(g_navMesh.size(), FLT_MAX);
    std::vector<int> parent(g_navMesh.size(), -1);
 
@@ -485,7 +499,8 @@ static bool NavMeshPath(const Vector &start, const Vector &goal, std::vector<int
          return true;
       }
 
-      for (int nb : g_navMesh[cur.tri].neighbors) {
+      for (size_t nb_i = 0; nb_i < g_navMesh[cur.tri].neighbors.size(); ++nb_i) {
+         int nb = g_navMesh[cur.tri].neighbors[nb_i];
          float g2 = cur.g + (g_navMesh[cur.tri].center - g_navMesh[nb].center).Length();
          if (g2 < best[nb]) {
             best[nb] = g2;
@@ -508,8 +523,8 @@ bool NavMeshNavigate(bot_t *pBot, const Vector &goal) {
       if (!NavMeshPath(pBot->pEdict->v.origin, goal, tris))
          return false;
       pBot->navPath.clear();
-      for (int t : tris)
-         pBot->navPath.push_back(g_navMesh[t].center);
+      for (size_t ti = 0; ti < tris.size(); ++ti)
+         pBot->navPath.push_back(g_navMesh[tris[ti]].center);
       pBot->navGoal = goal;
       pBot->navPathIndex = 0;
    }
@@ -1352,7 +1367,7 @@ static bool BotUpdateRoute(bot_t *pBot) {
       // this check can solve waypoint circling problems
       else if (dist < 100.0 && pBot->f_navProblemStartTime > 0.1 && pBot->f_navProblemStartTime + 0.5 < pBot->f_think_time) {
          if (nextWP != -1 && nextWP != pBot->goto_wp) {
-            const auto pathDistance = static_cast<float>(WaypointDistanceFromTo(new_current_wp, nextWP, pBot->current_team));
+            const float pathDistance = static_cast<float>(WaypointDistanceFromTo(new_current_wp, nextWP, pBot->current_team));
             const float distToNext = (waypoints[nextWP].origin - pBot->pEdict->v.origin).Length();
 
             // see if the bot is near enough to the next waypoint despite
@@ -2800,6 +2815,14 @@ static void BotCheckForRocketJump(bot_t *pBot) {
       int saved;
    };
 
+   static bool JumpCandidateDistCmp(const JumpCandidate &a, const JumpCandidate &b) {
+      return a.distance2D < b.distance2D;
+   }
+
+   static bool JumpCandidateSaveCmp(const JumpCandidate &a, const JumpCandidate &b) {
+      return a.saved > b.saved;
+   }
+
    std::vector<JumpCandidate> candidates;
 
    const float maxJumpHeight = random_float(340.0f, 440.0f);
@@ -2822,24 +2845,22 @@ static void BotCheckForRocketJump(bot_t *pBot) {
    if (candidates.empty())
       return;
 
-   std::sort(candidates.begin(), candidates.end(), [](const JumpCandidate &a, const JumpCandidate &b) {
-      return a.distance2D < b.distance2D;
-   });
+   std::sort(candidates.begin(), candidates.end(), JumpCandidateDistCmp);
 
    if (candidates.size() > 5)
       candidates.resize(5);
 
    const int currentDist = WaypointDistanceFromTo(pBot->current_wp, pBot->goto_wp, pBot->current_team);
-   for (auto &c : candidates) {
+   for (size_t i=0; i<candidates.size(); ++i) {
+      JumpCandidate &c = candidates[i];
       c.saved = currentDist - WaypointDistanceFromTo(c.index, pBot->goto_wp, pBot->current_team);
    }
 
-   std::sort(candidates.begin(), candidates.end(), [](const JumpCandidate &a, const JumpCandidate &b) {
-      return a.saved > b.saved;
-   });
+   std::sort(candidates.begin(), candidates.end(), JumpCandidateSaveCmp);
 
    TraceResult result;
-   for (const auto &c : candidates) {
+   for (size_t i=0; i<candidates.size(); ++i) {
+      const JumpCandidate &c = candidates[i];
       if (c.saved < 1000)
          continue;
 
@@ -2934,6 +2955,14 @@ static void BotCheckForConcJump(bot_t *pBot) {
       float saved;
    };
 
+   static bool ConcCandidateDistCmp(const JumpCandidate &a, const JumpCandidate &b) {
+      return a.distance2D < b.distance2D;
+   }
+
+   static bool ConcCandidateSaveCmp(const JumpCandidate &a, const JumpCandidate &b) {
+      return a.saved > b.saved;
+   }
+
    std::vector<JumpCandidate> candidates;
    float zDiff;
    float closest2D = random_float(400.0f, 700.0f);
@@ -2955,22 +2984,20 @@ static void BotCheckForConcJump(bot_t *pBot) {
    if (candidates.empty())
       return;
 
-   std::sort(candidates.begin(), candidates.end(), [](const JumpCandidate &a, const JumpCandidate &b) {
-      return a.distance2D < b.distance2D;
-   });
+   std::sort(candidates.begin(), candidates.end(), ConcCandidateDistCmp);
    if (candidates.size() > 5)
       candidates.resize(5);
 
-   for (auto &c : candidates) {
+   for (size_t i=0; i<candidates.size(); ++i) {
+      JumpCandidate &c = candidates[i];
       c.saved = static_cast<float>(WaypointDistanceFromTo(endWP, pBot->goto_wp, pBot->current_team) -
                                    WaypointDistanceFromTo(c.index, pBot->goto_wp, pBot->current_team));
    }
-   std::sort(candidates.begin(), candidates.end(), [](const JumpCandidate &a, const JumpCandidate &b) {
-      return a.saved > b.saved;
-   });
+   std::sort(candidates.begin(), candidates.end(), ConcCandidateSaveCmp);
 
    TraceResult result;
-   for (const auto &c : candidates) {
+   for (size_t i=0; i<candidates.size(); ++i) {
+      const JumpCandidate &c = candidates[i];
       if (c.saved < 1000.0f)
          continue;
 

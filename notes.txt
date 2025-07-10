@@ -1,0 +1,2 @@
+1. Removed remaining C++11 usages (auto, range-for, lambdas) and replaced unordered containers with std::map/set for VC6 builds. compat.h still provides basic fallbacks for nullptr and constexpr.
+2. Makefile now defaults to 64-bit builds; set USE_32=1 for 32-bit.

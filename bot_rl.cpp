@@ -4,8 +4,14 @@
 
 extern bot_t bots[32];
 #include <cstdio>
+#if defined(_MSC_VER) && _MSC_VER <= 1200
+#include <map>
+#else
 #include <unordered_map>
+#endif
 #include <cstdint>
+#include "compat.h"
+#include <climits>
 
 static unsigned gStateScores[BOT_STATE_COUNT];
 
@@ -60,9 +66,10 @@ void RL_SaveScores() {
     if(fp) {
         unsigned count = gPathStats.size();
         fwrite(&count, sizeof(unsigned), 1, fp);
-        for(const auto &p : gPathStats) {
-            fwrite(&p.first, sizeof(uint64_t), 1, fp);
-            fwrite(&p.second, sizeof(PathStats), 1, fp);
+        for(std::unordered_map<uint64_t, PathStats>::iterator p = gPathStats.begin();
+            p != gPathStats.end(); ++p) {
+            fwrite(&p->first, sizeof(uint64_t), 1, fp);
+            fwrite(&p->second, sizeof(PathStats), 1, fp);
         }
         fclose(fp);
     }
@@ -113,7 +120,7 @@ float RL_GetPathWeight(int from, int to) {
     if(from < 0 || to < 0)
         return 1.0f;
     uint64_t key = path_key(from, to);
-    auto it = gPathStats.find(key);
+    std::unordered_map<uint64_t, PathStats>::iterator it = gPathStats.find(key);
     if(it == gPathStats.end() || it->second.total == 0)
         return 1.0f;
     return 1.0f + static_cast<float>(it->second.wins) / it->second.total;

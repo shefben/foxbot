@@ -1,7 +1,11 @@
 #include "bot_markov.h"
 #include "bot.h"
 #include "bot_memory.h"
+#if defined(_MSC_VER) && _MSC_VER <= 1200
+#include <map>
+#else
 #include <unordered_map>
+#endif
 #include <vector>
 #include <string>
 #include <cstdlib>
@@ -12,6 +16,7 @@
 #include <fstream>
 #include <cstdio>
 #include <enginecallback.h>
+#include "compat.h"
 
 static std::unordered_map<std::string, std::vector<std::string>> g_chain;
 static std::unordered_map<std::string, std::vector<std::string>> g_context_lines;
@@ -58,7 +63,7 @@ void MarkovGenerate(char *out, size_t maxLen) {
     }
 
     size_t index = rand() % g_chain.size();
-    auto it = g_chain.begin();
+    std::unordered_map<std::string, std::vector<std::string> >::iterator it = g_chain.begin();
     std::advance(it, index);
     std::string prefix = it->first;
     std::vector<std::string> words;
@@ -70,7 +75,8 @@ void MarkovGenerate(char *out, size_t maxLen) {
 
     size_t len = 0;
     out[0] = '\0';
-    for(const auto &w : words) {
+    for(size_t i=0; i<words.size(); ++i) {
+        const std::string &w = words[i];
         if(len + w.length() + 1 >= maxLen) break;
         if(len) out[len++] = ' ';
         std::strncpy(out+len, w.c_str(), maxLen - len - 1);
@@ -79,7 +85,7 @@ void MarkovGenerate(char *out, size_t maxLen) {
     }
 
     for(int step=0; step<12; ++step) {
-        auto vit = g_chain.find(prefix);
+        std::unordered_map<std::string, std::vector<std::string> >::iterator vit = g_chain.find(prefix);
         if(vit == g_chain.end() || vit->second.empty())
             break;
         const std::string &next = vit->second[rand() % vit->second.size()];
@@ -109,10 +115,11 @@ bool MarkovSave(const char *file) {
         return false;
     }
     out << "N " << g_order << '\n';
-    for(const auto &it : g_chain) {
-        out << it.first << ' ' << it.second.size();
-        for(const auto &n : it.second)
-            out << ' ' << n;
+    for(std::unordered_map<std::string, std::vector<std::string> >::iterator it = g_chain.begin();
+        it != g_chain.end(); ++it) {
+        out << it->first << ' ' << it->second.size();
+        for(size_t i=0; i<it->second.size(); ++i)
+            out << ' ' << it->second[i];
         out << '\n';
     }
     return true;
@@ -173,7 +180,7 @@ bool MarkovLoad(const char *file) {
                 if(i) prefix.push_back(' ');
                 prefix += tokens[i];
             }
-            size_t count = std::stoul(tokens[g_order-1]);
+            size_t count = static_cast<size_t>(strtoul(tokens[g_order-1].c_str(), NULL, 10));
             size_t pos = g_order;
             for(size_t i=0;i<count && pos < tokens.size(); ++i, ++pos)
                 add_pair(prefix, tokens[pos]);
@@ -223,8 +230,9 @@ void MarkovGenerateContextual(const char *context, char *out, size_t maxLen) {
         return;
     }
     std::string key(context);
-    for(char &c : key) c = static_cast<char>(tolower(c));
-    auto it = g_context_lines.find(key);
+    for(size_t i=0; i<key.size(); ++i)
+        key[i] = static_cast<char>(tolower(key[i]));
+    std::unordered_map<std::string, std::vector<std::string> >::iterator it = g_context_lines.find(key);
     if(it == g_context_lines.end() || it->second.empty()) {
         MarkovGenerate(out, maxLen);
         return;

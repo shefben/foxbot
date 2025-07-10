@@ -29,6 +29,7 @@
 #define BOT_H
 
 #include "osdep.h"
+#include "compat.h"
 
 struct bot_t;
 struct job_struct;
@@ -77,7 +78,7 @@ int Cmd_Argc();
 
 // anologue of memset
 template <typename U> void bzero(U *ptr, size_t len) noexcept {
-   const auto zeroing = reinterpret_cast<unsigned char *>(ptr);
+   unsigned char *zeroing = reinterpret_cast<unsigned char *>(ptr);
 
    for (size_t i = 0; i < len; ++i) {
       zeroing[i] = 0;

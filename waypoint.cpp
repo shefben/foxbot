@@ -50,7 +50,13 @@
 List<char *> commanders;
 
 #include <queue>
+#include <utility>
+#if defined(_MSC_VER) && _MSC_VER <= 1200
+#include <map>
+#else
 #include <unordered_map>
+#endif
+#include "compat.h"
 
 int last_area = -1;
 bool area_on_last;
@@ -338,10 +344,12 @@ static bool WaypointGenerateFromSpawn() {
                                  Vector(0, 0, 50),     Vector(0, 0, -50)};
 
    while (!q.empty() && num_waypoints < 256) {
-      const auto [pos, idx] = q.front();
+      std::pair<Vector, int> front = q.front();
+      const Vector pos = front.first;
+      const int idx = front.second;
       q.pop();
-      for (const auto &dir : directions) {
-         const Vector next = pos + dir;
+      for (int d = 0; d < 6; ++d) {
+         const Vector next = pos + directions[d];
          const GridKey key{static_cast<int>(floor(next.x / grid)),
                            static_cast<int>(floor(next.y / grid)),
                            static_cast<int>(floor(next.z / grid))};
@@ -359,7 +367,7 @@ static bool WaypointGenerateFromSpawn() {
             g_waypoint_paths = true;
          if (WaypointAddPath(ni, idx))
             g_waypoint_paths = true;
-         q.push({next, ni});
+         q.push(std::make_pair(next, ni));
       }
    }
 
@@ -2034,8 +2042,10 @@ bool WaypointCacheSave() {
 
    UTIL_BuildFileName(filename, 255, "mapdata", mapname);
    FILE *bfp = fopen(filename, "wb");
-   if (bfp == nullptr)
+   if (bfp == nullptr) {
+      ALERT(at_error, "WaypointCacheSave: failed to open %s\n", filename);
       return false;
+   }
 
    fwrite(&header, sizeof header, 1, bfp);
 
@@ -2076,8 +2086,10 @@ bool WaypointCacheLoad() {
    strncat(mapname, "_cache.fwp", sizeof(mapname) - strlen(mapname) - 1);
    UTIL_BuildFileName(filename, 255, "mapdata", mapname);
    FILE *bfp = fopen(filename, "rb");
-   if (bfp == nullptr)
+   if (bfp == nullptr) {
+      ALERT(at_console, "WaypointCacheLoad: %s not found\n", filename);
       return false;
+   }
 
    fread(&header, sizeof header, 1, bfp);
    header.filetype[7] = 0;
