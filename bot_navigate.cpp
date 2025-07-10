@@ -29,6 +29,7 @@
 #include "util.h"
 
 #include "bot.h"
+#include "bot_fsm.h"
 #include "waypoint.h"
 
 #include "bot_func.h"

@@ -47,6 +47,8 @@ SRC = 	bot.cpp \
    bot_job_assessors.cpp \
    bot_job_functions.cpp \
    bot_job_think.cpp \
+   bot_fsm.cpp \
+   bot_markov.cpp \
    bot_navigate.cpp \
    bot_start.cpp \
    botcam.cpp \

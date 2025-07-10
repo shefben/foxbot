@@ -1,0 +1,59 @@
+[GREETINGS]
+Hey team, let's have a good game!
+Ready for action!
+What's up everyone?
+Let's show them how it's done!
+Time to rock and roll!
+Hope you're ready %s!
+Good luck, have fun!
+Watch my back and I'll watch yours!
+
+[KILL WINNING]
+You can't stop me %s!
+I'm dominating this match!
+Another one bites the dust!
+Stay down %s!
+Who's next?
+Too easy!
+I'm on fire!
+Looks like I'm unbeatable today!
+
+[KILL LOSING]
+Gotcha %s, maybe this will turn things around!
+Finally a point for us!
+Yes! That's one for the good guys!
+Take that %s!
+We needed that!
+Comeback starts now!
+I'll take every advantage I can get!
+They won't keep us down!
+
+[KILLED WINNING]
+Lucky shot %s, I'm still ahead!
+Nice hit, but I'm not worried!
+You got me %s, but it won't last!
+Enjoy that point, I'll be back!
+Not bad, but I'm still leading!
+Good one %s, I'll get you next time!
+That was a surprise!
+You won't get many more like that!
+
+[KILLED LOSING]
+Argh %s, I'm having a rough day!
+Can't seem to catch a break!
+Nicely done %s!
+You got me again!
+Need to step up my game.
+Ouch! That hurt!
+They're all over us!
+This match is brutal.
+
+[SUICIDE]
+Oops, that didn't go as planned.
+Forget you saw that.
+I really messed that up!
+Someone pretend that didn't happen.
+I swear I'm better than this.
+That was embarrassing!
+Even the best make mistakes.
+Let's never speak of this again.

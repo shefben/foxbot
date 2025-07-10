@@ -35,7 +35,9 @@
 #include "bot.h"
 #include "bot_func.h"
 #include "bot_weapons.h"
+#include "bot_fsm.h"
 #include "waypoint.h"
+#include "bot_markov.h"
 
 // meta mod includes
 #include <dllapi.h>
@@ -669,6 +671,12 @@ void GameDLLInit() {
    // read the bot names from the bot name file
    BotNameInit();
 
+   // initialise chat generator
+   MarkovInit();
+   char mkfile[256];
+   UTIL_BuildFileName(mkfile, 255, (char*)"foxbot_markov.dat", NULL);
+   MarkovLoad(mkfile);
+   LoadFSMCounts();
    // read the chat strings from the bot chat file
    chat.readChatFile();
 
@@ -676,6 +684,15 @@ void GameDLLInit() {
       (*other_gFunctionTable.pfnGameInit)();
    else
       SET_META_RESULT(MRES_IGNORED);
+}
+
+void GameDLLShutdown() {
+   char mkfile[256];
+   UTIL_BuildFileName(mkfile, 255, (char*)"foxbot_markov.dat", NULL);
+   MarkovSave(mkfile);
+   SaveFSMCounts();
+   if (!mr_meta && other_gFunctionTable.pfnGameShutdown)
+      (*other_gFunctionTable.pfnGameShutdown)();
 }
 
 // Constructor for the chatClass class
@@ -756,6 +773,7 @@ void chatClass::readChatFile() {
          // UTIL_BotLogPrintf("buffer %s %d\n", buffer, this->stringCount[chat_section]);
 
          strcpy(this->strings[chat_section][this->stringCount[chat_section]], buffer);
+         MarkovAddSentence(buffer);
          ++this->stringCount[chat_section];
       }
    }
@@ -802,8 +820,9 @@ void chatClass::pickRandomChatString(char *msg, size_t maxLength, const int chat
    // is "%s" in the text?
    if (playerName != nullptr && strstr(this->strings[chatSection][randomIndex], "%s") != nullptr) {
       snprintf(msg, maxLength, this->strings[chatSection][randomIndex], playerName);
-   } else
-      printf("%s", msg);
+   } else {
+      strncpy(msg, this->strings[chatSection][randomIndex], maxLength);
+   }
 
    msg[maxLength - 1] = '\0';
 }
@@ -4612,6 +4631,7 @@ C_DLLEXPORT int GetNewDLLFunctions(NEW_DLL_FUNCTIONS *pFunctionTable, int *inter
       }
       gGameDLLFunc.newapi_table = pFunctionTable;
    }
+   pFunctionTable->pfnGameShutdown = GameDLLShutdown;
    return true;
 }
 
