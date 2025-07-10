@@ -682,6 +682,7 @@ void GameDLLInit() {
    UTIL_BuildFileName(mkfile, 255, (char*)"foxbot_markov.dat", NULL);
    MarkovLoad(mkfile);
    LoadFSMCounts();
+   LoadBotMetrics();
    // read the chat strings from the bot chat file
    chat.readChatFile();
 
@@ -701,6 +702,7 @@ void GameDLLShutdown() {
    }
    RL_SaveScores();
    SaveFSMCounts();
+   SaveBotMetrics();
    if (!mr_meta && other_gFunctionTable.pfnGameShutdown)
       (*other_gFunctionTable.pfnGameShutdown)();
 }

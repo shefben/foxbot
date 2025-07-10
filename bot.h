@@ -277,6 +277,8 @@ typedef struct {
    char name[BOT_NAME_LEN + 1];
    char skin[BOT_SKIN_LEN + 1];
    int bot_skill;
+   float accuracy;         // dynamic accuracy metric (0.0 - 1.0)
+   float reaction_speed;   // dynamic reaction speed metric (0.0 - 1.0)
    int start_action;
    float f_kick_time;
    float create_time;

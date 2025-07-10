@@ -7,6 +7,7 @@
 
 extern chatClass chat;
 extern int bot_chat;
+extern bot_t bots[32];
 
 static unsigned gBotCounts[BOT_STATE_COUNT][BOT_STATE_COUNT];
 static unsigned gMoveCounts[MOVE_STATE_COUNT][MOVE_STATE_COUNT];
@@ -17,6 +18,31 @@ static unsigned gCombatCounts[COMBAT_STATE_COUNT][COMBAT_STATE_COUNT];
 static unsigned gAimCounts[AIM_STATE_COUNT][AIM_STATE_COUNT];
 static unsigned gNavCounts[NAV_STATE_COUNT][NAV_STATE_COUNT];
 static unsigned gReactionCounts[REACT_STATE_COUNT][REACT_STATE_COUNT];
+
+float gBotAccuracy[32];
+float gBotReaction[32];
+
+static void load_metrics(const char *file) {
+    FILE *fp = fopen(file, "rb");
+    if(!fp) {
+        for(int i=0;i<32;i++) {
+            gBotAccuracy[i] = 0.5f;
+            gBotReaction[i] = 0.5f;
+        }
+        return;
+    }
+    fread(gBotAccuracy, sizeof(float), 32, fp);
+    fread(gBotReaction, sizeof(float), 32, fp);
+    fclose(fp);
+}
+
+static void save_metrics(const char *file) {
+    FILE *fp = fopen(file, "wb");
+    if(!fp) return;
+    fwrite(gBotAccuracy, sizeof(float), 32, fp);
+    fwrite(gBotReaction, sizeof(float), 32, fp);
+    fclose(fp);
+}
 
 static void load_counts(const char *file, unsigned *counts, int states) {
     FILE *fp = fopen(file, "rb");
@@ -55,6 +81,8 @@ void LoadFSMCounts() {
     load_counts(fname, &gNavCounts[0][0], NAV_STATE_COUNT);
     UTIL_BuildFileName(fname, 255, (char*)"bot_fsm_react.dat", NULL);
     load_counts(fname, &gReactionCounts[0][0], REACT_STATE_COUNT);
+    UTIL_BuildFileName(fname, 255, (char*)"bot_metrics.dat", NULL);
+    load_metrics(fname);
     RL_LoadScores();
 }
 
@@ -79,6 +107,22 @@ void SaveFSMCounts() {
     UTIL_BuildFileName(fname, 255, (char*)"bot_fsm_react.dat", NULL);
     save_counts(fname, &gReactionCounts[0][0], REACT_STATE_COUNT);
     RL_SaveScores();
+}
+
+void LoadBotMetrics() {
+    char fname[256];
+    UTIL_BuildFileName(fname, 255, (char*)"bot_metrics.dat", NULL);
+    load_metrics(fname);
+}
+
+void SaveBotMetrics() {
+    char fname[256];
+    for(int i=0;i<32;i++) {
+        gBotAccuracy[i] = bots[i].accuracy;
+        gBotReaction[i] = bots[i].reaction_speed;
+    }
+    UTIL_BuildFileName(fname, 255, (char*)"bot_metrics.dat", NULL);
+    save_metrics(fname);
 }
 
 static void BotFSMUpdateCounts(BotFSM *fsm, int from, int to) {
@@ -683,6 +727,7 @@ static float g_fsm_next_save = 0.0f;
 void FSMPeriodicSave(float currentTime) {
     if(currentTime >= g_fsm_next_save) {
         SaveFSMCounts();
+        SaveBotMetrics();
         g_fsm_next_save = currentTime + 120.0f;
     }
 }
