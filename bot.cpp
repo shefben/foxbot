@@ -3798,6 +3798,7 @@ void BotThink(bot_t *pBot) {
    BotUpdateWeapon(pBot);
    BotUpdateChat(pBot);
    BotUpdateCombat(pBot);
+   BotApplyCombatState(pBot);
    BotUpdateAim(pBot);
    BotUpdateReaction(pBot);
    BotApplyNavState(pBot);

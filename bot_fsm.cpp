@@ -424,8 +424,12 @@ void BotUpdateWeapon(bot_t *pBot) {
             next = WEAPON_GRENADE;
     }
 
-    if(pBot->desired_combat_state == COMBAT_RETREAT && pBot->current_weapon.iAmmo2 > 0)
-        next = WEAPON_SECONDARY;
+    if(pBot->desired_combat_state == COMBAT_RETREAT && pBot->current_weapon.iAmmo2 > 0) {
+        if(pBot->visEnemyCount > pBot->visAllyCount && random_long(0,100) < 40)
+            next = WEAPON_GRENADE;
+        else
+            next = WEAPON_SECONDARY;
+    }
 
     pBot->desired_weapon_state = static_cast<int>(next);
 }
@@ -489,6 +493,13 @@ void BotUpdateCombat(bot_t *pBot) {
         else if(dist < 200.0f)
             next = COMBAT_ATTACK;
         else if(dist > 600.0f)
+            next = COMBAT_APPROACH;
+
+        if(PlayerHealthPercent(pBot->pEdict) < 30 &&
+           pBot->visEnemyCount > pBot->visAllyCount)
+            next = COMBAT_RETREAT;
+        else if(PlayerHealthPercent(pBot->pEdict) > 60 &&
+                pBot->visAllyCount > pBot->visEnemyCount + 1)
             next = COMBAT_APPROACH;
     }
 
@@ -660,5 +671,10 @@ void BotUpdateReaction(bot_t *pBot) {
         next = REACT_ALERT;
     else if(pBot->desired_reaction_state == REACT_ALERT && !pBot->enemy.ptr)
         next = REACT_CALM;
+
+    if(PlayerHealthPercent(pBot->pEdict) < 40 &&
+       pBot->visEnemyCount > pBot->visAllyCount + 1)
+        next = REACT_PANIC;
+
     pBot->desired_reaction_state = (int)next;
 }
