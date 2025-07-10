@@ -36,6 +36,7 @@
 
 #include "meta_api.h" //meta mod"
 #include <algorithm>
+#include <cctype>
 
 extern bool mr_meta;
 
@@ -50,6 +51,7 @@ extern char prevmapname[32];
 extern edict_t *clients[32];
 
 static bool name_message_check(const char *msg_string, const char *name_string);
+static void StripFormatting(char *dst, const char *src);
 
 // my external stuff for scripted message intercept
 /*extern bool blue_av[8];
@@ -1046,6 +1048,30 @@ void pfnGetPlayerStats(const edict_t *pClient, int *ping, int *packet_loss) {
    (*g_engfuncs.pfnGetPlayerStats)(pClient, ping, packet_loss);
 }
 
+static void StripFormatting(char *dst, const char *src) {
+   if (!dst || !src)
+      return;
+   while (*src) {
+      if (*src == '^' && isdigit(*(src + 1))) {
+         src += 2;
+         continue;
+      }
+      if (*src == '\x1B') {
+         ++src;
+         if (*src == '[') {
+            ++src;
+            while (*src && !isalpha(*src))
+               ++src;
+            if (*src)
+               ++src;
+         }
+         continue;
+      }
+      *dst++ = *src++;
+   }
+   *dst = '\0';
+}
+
 void pfnServerPrint(const char *szMsg) {
    if (debug_engine) {
       fp = UTIL_OpenFoxbotLog();
@@ -1087,9 +1113,11 @@ void pfnServerPrint(const char *szMsg) {
          ++textPart;
    }
    const char *areaName = "";
+   bool foundPlayer = false;
    if (fromName[0]) {
       for (int t = 0; t < 32; ++t) {
          if (clients[t] && strcmp(STRING(clients[t]->v.netname), fromName) == 0) {
+            foundPlayer = true;
             const int area = AreaInsideClosest(clients[t]);
             if (area != -1) {
                switch (UTIL_GetTeam(clients[t])) {
@@ -1114,8 +1142,10 @@ void pfnServerPrint(const char *szMsg) {
       }
    }
    char trainLine[512];
-   if (textPart) {
-      snprintf(trainLine, sizeof(trainLine), "%s %s %s", isTeam ? "TEAM" : "ALL", areaName, textPart);
+   if (textPart && foundPlayer) {
+      char cleanText[256];
+      StripFormatting(cleanText, textPart);
+      snprintf(trainLine, sizeof(trainLine), "%s %s %s", isTeam ? "TEAM" : "ALL", areaName, cleanText);
       MarkovAddSentence(trainLine);
    }
 
