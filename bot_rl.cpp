@@ -6,6 +6,8 @@ extern bot_t bots[32];
 #include <cstdio>
 #include <unordered_map>
 #include <cstdint>
+#include "compat.h"
+#include <climits>
 
 static unsigned gStateScores[BOT_STATE_COUNT];
 

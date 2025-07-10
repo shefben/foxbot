@@ -301,7 +301,8 @@ int UTIL_GetTeamColor(edict_t *pEntity) {
       char topcolor[32];
 
       char *infobuffer = (*g_engfuncs.pfnGetInfoKeyBuffer)(pEntity);
-      strcpy(topcolor, g_engfuncs.pfnInfoKeyValue(infobuffer, "topcolor"));
+      strncpy(topcolor, g_engfuncs.pfnInfoKeyValue(infobuffer, "topcolor"), sizeof(topcolor)-1);
+      topcolor[sizeof(topcolor)-1] = '\0';
 
       // used for spy checking
       if (strcmp(topcolor, "150") == 0 || strcmp(topcolor, "153") == 0 || strcmp(topcolor, "148") == 0 || strcmp(topcolor, "140") == 0)
@@ -358,7 +359,8 @@ int UTIL_GetTeam(edict_t *pEntity) {
                                                    int i;
 
                                                    num_teams = 0;
-                                                   strcpy(teamlist, CVAR_GET_STRING("mp_teamlist"));
+                                                   strncpy(teamlist, CVAR_GET_STRING("mp_teamlist"), sizeof(teamlist)-1);
+                                                   teamlist[sizeof(teamlist)-1] = '\0';
                                                    pName = teamlist;
                                                    pName = strtok(pName, ";");
 
@@ -370,7 +372,8 @@ int UTIL_GetTeam(edict_t *pEntity) {
                                                                                                    break;
                                                                    if(i == num_teams)
                                                                    {
-                                                                                   strcpy(team_names[num_teams], pName);
+   strncpy(team_names[num_teams], pName, MAX_TEAMNAME_LENGTH-1);
+   team_names[num_teams][MAX_TEAMNAME_LENGTH-1] = '\0';
                                                                                    num_teams++;
                                                                    }
                                                                    pName = strtok(NULL, ";");
@@ -378,7 +381,8 @@ int UTIL_GetTeam(edict_t *pEntity) {
                                    }
 
                                    infobuffer = (*g_engfuncs.pfnGetInfoKeyBuffer)( pEntity );
-                                   strcpy(model_name, (g_engfuncs.pfnInfoKeyValue(infobuffer, "model")));
+                                   strncpy(model_name, (g_engfuncs.pfnInfoKeyValue(infobuffer, "model")), sizeof(model_name)-1);
+                                   model_name[sizeof(model_name)-1] = '\0';
 
                                    for(int index=0; index < num_teams; index++)
                                    {
@@ -414,7 +418,8 @@ int UTIL_GetClass(edict_t *pEntity) {
    char model_name[32];
 
    char *infobuffer = (*g_engfuncs.pfnGetInfoKeyBuffer)(pEntity);
-   strcpy(model_name, g_engfuncs.pfnInfoKeyValue(infobuffer, "model"));
+   strncpy(model_name, g_engfuncs.pfnInfoKeyValue(infobuffer, "model"), sizeof(model_name)-1);
+   model_name[sizeof(model_name)-1] = '\0';
 
    return 0;
 }
@@ -614,7 +619,8 @@ FILE *UTIL_OpenFoxbotLog() {
          fclose(file_ptr);
 
          char old_logname[160];
-         strcpy(old_logname, foxbot_logname);
+         strncpy(old_logname, foxbot_logname, sizeof(old_logname)-1);
+         old_logname[sizeof(old_logname)-1] = '\0';
          strncat(old_logname, ".old", 159 - strlen(old_logname)); // give it a suffix
          old_logname[159] = '\0';
          remove(old_logname);                 // delete the last old log file

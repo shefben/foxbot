@@ -29,6 +29,7 @@
 #define BOT_H
 
 #include "osdep.h"
+#include "compat.h"
 
 struct bot_t;
 struct job_struct;
