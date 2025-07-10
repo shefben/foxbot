@@ -3580,3 +3580,25 @@ int CountRecentAllyKills(const bot_t *pBot) {
    }
    return kills;
 }
+
+// Trigger chat messages when kill or death streaks reach multiples of three
+void CheckStreakComments(bot_t *pBot) {
+   if (!pBot || !bot_allow_humour)
+      return;
+
+   job_struct *newJob = nullptr;
+
+   if (pBot->killStreak >= 3 && pBot->killStreak % 3 == 0) {
+      newJob = InitialiseNewJob(pBot, JOB_CHAT, true);
+      if (newJob) {
+         snprintf(newJob->message, MAX_CHAT_LENGTH, "On a %d kill streak!", pBot->killStreak);
+         SubmitNewJob(pBot, JOB_CHAT, newJob);
+      }
+   } else if (pBot->deathStreak >= 3 && pBot->deathStreak % 3 == 0) {
+      newJob = InitialiseNewJob(pBot, JOB_CHAT, true);
+      if (newJob) {
+         snprintf(newJob->message, MAX_CHAT_LENGTH, "Ouch %d deaths in a row...", pBot->deathStreak);
+         SubmitNewJob(pBot, JOB_CHAT, newJob);
+      }
+   }
+}

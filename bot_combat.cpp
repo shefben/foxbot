@@ -35,6 +35,7 @@
 #include "waypoint.h"
 #include "bot_func.h"
 #include "bot_job_think.h"
+#include "bot_job_functions.h"
 #include "bot_navigate.h"
 #include "bot_weapons.h"
 
@@ -246,6 +247,9 @@ void BotMetricOnKill(bot_t *bot) {
    if(bot->accuracy > 1.0f) bot->accuracy = 1.0f;
    bot->reaction_speed += 0.03f;
    if(bot->reaction_speed > 1.0f) bot->reaction_speed = 1.0f;
+   bot->killStreak++;
+   bot->deathStreak = 0;
+   CheckStreakComments(bot);
 }
 
 void BotMetricOnDeath(bot_t *bot) {
@@ -254,6 +258,9 @@ void BotMetricOnDeath(bot_t *bot) {
    if(bot->accuracy < 0.0f) bot->accuracy = 0.0f;
    bot->reaction_speed -= 0.03f;
    if(bot->reaction_speed < 0.0f) bot->reaction_speed = 0.0f;
+   bot->deathStreak++;
+   bot->killStreak = 0;
+   CheckStreakComments(bot);
 }
 
 void BotMetricOnDamage(bot_t *bot, int damage) {
