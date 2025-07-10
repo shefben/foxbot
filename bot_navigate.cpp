@@ -952,6 +952,13 @@ static void BotHandleLadderTraffic(bot_t *pBot) {
 
          // skip invalid players
          if (pPlayer && !pPlayer->free && pPlayer == tr.pHit) {
+            const int oppIndex = ENTINDEX(pPlayer) - 1;
+            if (oppIndex >= 0 && oppIndex < MAX_OPPONENTS) {
+               OpponentRememberWeapon(pBot->opponents[oppIndex], pPlayer->v.weaponmodel);
+               const int wp = WaypointFindNearest_E(pPlayer, REACHABLE_RANGE, UTIL_GetTeam(pPlayer));
+               if (wp != -1)
+                  OpponentRememberWaypoint(pBot->opponents[oppIndex], wp);
+            }
             // jump off the ladder
             pBot->pEdict->v.button = 0; // in case IN_FORWARD is active
             pBot->pEdict->v.button |= IN_JUMP;

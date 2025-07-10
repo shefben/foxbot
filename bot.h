@@ -263,8 +263,79 @@ typedef struct {
    float f_lastSeen;     // when they were last seen
                          //	int seenClass;  // the class the bot last saw the enemy as
    float f_seenDistance; // how far away the bots current enemy is
-   Vector lastLocation;  // where the bot last saw the enemy
+  Vector lastLocation;  // where the bot last saw the enemy
 } enemyStruct;
+
+// maximum number of opponents tracked
+#define MAX_OPPONENTS 32
+
+// store observed opponent habits
+typedef struct {
+   int weaponModel[4];
+   unsigned weaponCount[4];
+   int routeWP[4];
+   unsigned routeCount[4];
+} OpponentInfo;
+
+static inline void OpponentRememberWeapon(OpponentInfo &info, int model) {
+   int slot = -1;
+   for (int i = 0; i < 4; ++i) {
+      if (info.weaponCount[i] == 0 || info.weaponModel[i] == model) {
+         slot = i;
+         break;
+      }
+   }
+   if (slot == -1) {
+      slot = 0;
+      for (int i = 1; i < 4; ++i)
+         if (info.weaponCount[i] < info.weaponCount[slot])
+            slot = i;
+   }
+   info.weaponModel[slot] = model;
+   ++info.weaponCount[slot];
+}
+
+static inline void OpponentRememberWaypoint(OpponentInfo &info, int wp) {
+   int slot = -1;
+   for (int i = 0; i < 4; ++i) {
+      if (info.routeCount[i] == 0 || info.routeWP[i] == wp) {
+         slot = i;
+         break;
+      }
+   }
+   if (slot == -1) {
+      slot = 0;
+      for (int i = 1; i < 4; ++i)
+         if (info.routeCount[i] < info.routeCount[slot])
+            slot = i;
+   }
+   info.routeWP[slot] = wp;
+   ++info.routeCount[slot];
+}
+
+static inline int OpponentFavoriteWeapon(const OpponentInfo &info) {
+   int best = -1;
+   unsigned bestCount = 0;
+   for (int i = 0; i < 4; ++i) {
+      if (info.weaponCount[i] > bestCount) {
+         bestCount = info.weaponCount[i];
+         best = info.weaponModel[i];
+      }
+   }
+   return best;
+}
+
+static inline int OpponentFavoredWaypoint(const OpponentInfo &info) {
+   int best = -1;
+   unsigned bestCount = 0;
+   for (int i = 0; i < 4; ++i) {
+      if (info.routeCount[i] > bestCount) {
+         bestCount = info.routeCount[i];
+         best = info.routeWP[i];
+      }
+   }
+   return best;
+}
 
 // this is the core data structure used for each bot
 typedef struct {
@@ -406,6 +477,7 @@ typedef struct {
 
    // variables related to tracking of other players /////////////
    //	short track_reason;  // why the bot is tracking who they are(not used yet)
+   OpponentInfo opponents[MAX_OPPONENTS];
 
    float f_bot_spawn_time;      // remembers when the bot last spawned
    float last_spawn_time;       // also remembers when the bot last spawned(dunno why)
