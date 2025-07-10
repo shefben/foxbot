@@ -64,6 +64,33 @@ extern int num_waypoints; // number of waypoints currently in use
 extern AREA areas[MAX_WAYPOINTS];
 extern int num_areas;
 
+static const char *graffitiFlagMsgs[] = {
+   "Flag secured!",
+   "Captured and tagged!",
+   "Flag run success!"
+};
+
+static const char *graffitiCloseMsgs[] = {
+   "That was close!",
+   "Nearly got fragged!",
+   "Phew, close call!"
+};
+
+static const char *graffitiDefaultMsgs[] = {
+   "FoXBot was here",
+   "Need a medic?",
+   "Beware!",
+   "Out of my way!"
+};
+
+static const char *ChooseGraffitiLine(bot_t *pBot) {
+   if (pBot->f_lastFlagCapture + 10.0f > pBot->f_think_time)
+      return graffitiFlagMsgs[random_long(0, ARRAYSIZE(graffitiFlagMsgs) - 1)];
+   if (PlayerHealthPercent(pBot->pEdict) < 40 && pBot->f_injured_time + 4.0f > pBot->f_think_time)
+      return graffitiCloseMsgs[random_long(0, ARRAYSIZE(graffitiCloseMsgs) - 1)];
+   return graffitiDefaultMsgs[random_long(0, ARRAYSIZE(graffitiDefaultMsgs) - 1)];
+}
+
 // This function handles bot behaviour for the JOB_SEEK_WAYPOINT job.
 // i.e. the bot can't find a waypoint to move towards, so try to move
 // about until the bot can find one again.
@@ -2248,6 +2275,7 @@ int JobCaptureFlag(bot_t *pBot) {
    // phase 1 - check if the bot has arrived at the flag capture point
    if (job_ptr->phase == 1) {
       if (pBot->current_wp == job_ptr->waypoint && VectorsNearerThan(waypoints[job_ptr->waypoint].origin, pBot->pEdict->v.origin, 30.0)) {
+         pBot->f_lastFlagCapture = pBot->f_think_time;
          return JOB_TERMINATED; // job done
       } else {
          pBot->goto_wp = job_ptr->waypoint;
@@ -3565,6 +3593,9 @@ int JobGraffitiArtist(bot_t *pBot) {
 
       if (VectorsNearerThan(pBot->pEdict->v.origin, job_ptr->origin, 60.0)) {
          BotSprayLogo(pBot->pEdict, false);
+         const char *msg = ChooseGraffitiLine(pBot);
+         if (bot_allow_humour && msg && msg[0])
+            UTIL_HostSay(pBot->pEdict, 0, msg);
          return JOB_TERMINATED; // success
       }
    }
