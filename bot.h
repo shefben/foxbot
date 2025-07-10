@@ -436,7 +436,7 @@ typedef struct {
    int desired_nav_state;   // FSM controlled navigation style
    int desired_aim_state;   // FSM controlled aiming preference
    int desired_reaction_state; // FSM controlled reaction state
-   int fake_ping;           // simulated network latency
+   int fake_ping;           // simulated network latency with jitter
    float f_next_ping_update; // next time to refresh fake ping
    float fake_ping_target;  // target latency for smoothing
 
