@@ -3644,11 +3644,21 @@ void BotThink(bot_t *pBot) {
    pBot->pEdict->v.flags |= FL_FAKECLIENT;
 
    // Fix by Cheeseh (RCBot)
-   const float msecval = (gpGlobals->time - pBot->fLastRunPlayerMoveTime) * 1000.0f;
+   float msecval = (gpGlobals->time - pBot->fLastRunPlayerMoveTime) * 1000.0f;
    pBot->fLastRunPlayerMoveTime = gpGlobals->time;
 
    constexpr float fUpdateInterval = 1.0f / 60.0f; // update at 60 fps
-   pBot->fUpdateTime = gpGlobals->time + fUpdateInterval;
+   if (gpGlobals->time < pBot->fUpdateTime)
+      return; // maintain update frequency
+
+   pBot->fUpdateTime += fUpdateInterval;
+
+   // skip missed frames if we're more than 0.25s behind
+   if (gpGlobals->time - pBot->fUpdateTime > 0.25f)
+      pBot->fUpdateTime = gpGlobals->time + fUpdateInterval;
+
+   if (msecval > 200.0f)
+      msecval = 200.0f; // cap delta to avoid runaway movement
 
    // this is the only place this should be set
    // (gpGlobals->time appears to run in another thread)
