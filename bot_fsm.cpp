@@ -21,6 +21,9 @@ static unsigned gAimCounts[AIM_STATE_COUNT][AIM_STATE_COUNT];
 static unsigned gNavCounts[NAV_STATE_COUNT][NAV_STATE_COUNT];
 static unsigned gReactionCounts[REACT_STATE_COUNT][REACT_STATE_COUNT];
 
+static const unsigned FSM_FILE_VERSION = 1;
+static const unsigned METRICS_FILE_VERSION = 1;
+
 TeamSignalType g_teamSignals[MAX_TEAMS];
 float g_teamSignalExpire[MAX_TEAMS];
 
@@ -37,6 +40,16 @@ static void load_metrics(const char *file) {
         }
         return;
     }
+    unsigned version = 0;
+    if(fread(&version, sizeof(unsigned), 1, fp) != 1 || version != METRICS_FILE_VERSION) {
+        UTIL_BotLogPrintf("load_metrics: version mismatch for %s\n", file);
+        for(int i=0;i<32;i++) {
+            gBotAccuracy[i] = 0.5f;
+            gBotReaction[i] = 0.5f;
+        }
+        fclose(fp);
+        return;
+    }
     fread(gBotAccuracy, sizeof(float), 32, fp);
     fread(gBotReaction, sizeof(float), 32, fp);
     fclose(fp);
@@ -48,6 +61,7 @@ static void save_metrics(const char *file) {
         UTIL_BotLogPrintf("save_metrics: failed to open %s\n", file);
         return;
     }
+    fwrite(&METRICS_FILE_VERSION, sizeof(unsigned), 1, fp);
     fwrite(gBotAccuracy, sizeof(float), 32, fp);
     fwrite(gBotReaction, sizeof(float), 32, fp);
     fclose(fp);
@@ -60,6 +74,13 @@ static void load_counts(const char *file, unsigned *counts, int states) {
         for(int i=0;i<states*states;i++) counts[i]=1;
         return;
     }
+    unsigned version = 0;
+    if(fread(&version, sizeof(unsigned), 1, fp) != 1 || version != FSM_FILE_VERSION) {
+        UTIL_BotLogPrintf("load_counts: version mismatch for %s\n", file);
+        for(int i=0;i<states*states;i++) counts[i]=1;
+        fclose(fp);
+        return;
+    }
     fread(counts, sizeof(unsigned), states*states, fp);
     fclose(fp);
 }
@@ -70,6 +91,7 @@ static void save_counts(const char *file, unsigned *counts, int states) {
         UTIL_BotLogPrintf("save_counts: failed to open %s\n", file);
         return;
     }
+    fwrite(&FSM_FILE_VERSION, sizeof(unsigned), 1, fp);
     fwrite(counts, sizeof(unsigned), states*states, fp);
     fclose(fp);
 }
