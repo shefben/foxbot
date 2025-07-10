@@ -561,7 +561,7 @@ void BotUpdateChat(bot_t *pBot) {
         case CHAT_GREET:
             if(!pBot->greeting && pBot->create_time + 3.0 > pBot->f_think_time &&
                random_long(1, 1000) < bot_chat) {
-                MarkovGenerate(newJob->message, MAX_CHAT_LENGTH);
+                strncpy(newJob->message, "@greet", MAX_CHAT_LENGTH);
                 newJob->message[MAX_CHAT_LENGTH-1] = '\0';
                 SubmitNewJob(pBot, JOB_CHAT, newJob);
                 pBot->greeting = true;
@@ -569,9 +569,8 @@ void BotUpdateChat(bot_t *pBot) {
             break;
         case CHAT_KILL:
             if(pBot->killed_edict && random_long(1, 1000) < bot_chat) {
-                MarkovGenerate(newJob->message, MAX_CHAT_LENGTH);
-                size_t len = strlen(newJob->message);
-                snprintf(newJob->message+len, MAX_CHAT_LENGTH-len, " %s", STRING(pBot->killed_edict->v.netname));
+                strncpy(newJob->message, "@kill", MAX_CHAT_LENGTH);
+                newJob->player = pBot->killed_edict;
                 newJob->message[MAX_CHAT_LENGTH-1] = '\0';
                 SubmitNewJob(pBot, JOB_CHAT, newJob);
                 pBot->killed_edict = NULL;
@@ -579,9 +578,8 @@ void BotUpdateChat(bot_t *pBot) {
             break;
         case CHAT_DEATH:
             if(pBot->killer_edict && random_long(1, 1000) < bot_chat) {
-                MarkovGenerate(newJob->message, MAX_CHAT_LENGTH);
-                size_t len = strlen(newJob->message);
-                snprintf(newJob->message+len, MAX_CHAT_LENGTH-len, " %s", STRING(pBot->killer_edict->v.netname));
+                strncpy(newJob->message, "@death", MAX_CHAT_LENGTH);
+                newJob->player = pBot->killer_edict;
                 newJob->message[MAX_CHAT_LENGTH-1] = '\0';
                 SubmitNewJob(pBot, JOB_CHAT, newJob);
                 pBot->killer_edict = NULL;

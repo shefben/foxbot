@@ -275,11 +275,23 @@ int JobChat(bot_t *pBot) {
 
    // end phase - say the message
    if (job_ptr->phase == 1 && job_ptr->phase_timer < pBot->f_think_time) {
-      // just in case!
       job_ptr->message[MAX_CHAT_LENGTH - 1] = '\0';
 
-      UTIL_HostSay(pBot->pEdict, 0, job_ptr->message);
-      MarkovAddSentence(job_ptr->message);
+      if (job_ptr->message[0] == '@') {
+         char gen[MAX_CHAT_LENGTH];
+         MarkovGenerateContextual(job_ptr->message + 1, gen, MAX_CHAT_LENGTH);
+         if (job_ptr->player)
+         {
+            size_t len = strlen(gen);
+            snprintf(gen + len, MAX_CHAT_LENGTH - len, " %s", STRING(job_ptr->player->v.netname));
+            gen[MAX_CHAT_LENGTH - 1] = '\0';
+         }
+         UTIL_HostSay(pBot->pEdict, 0, gen);
+         MarkovAddSentence(gen);
+      } else {
+         UTIL_HostSay(pBot->pEdict, 0, job_ptr->message);
+         MarkovAddSentence(job_ptr->message);
+      }
       return JOB_TERMINATED; // job done
    }
 
@@ -310,11 +322,23 @@ int JobReport(bot_t *pBot) {
 
    // end phase - say the message
    if (job_ptr->phase == 1 && job_ptr->phase_timer < pBot->f_think_time) {
-      // just in case!
       job_ptr->message[MAX_CHAT_LENGTH - 1] = '\0';
 
-      UTIL_HostSay(pBot->pEdict, 1, job_ptr->message);
-      MarkovAddSentence(job_ptr->message);
+      if (job_ptr->message[0] == '@') {
+         char gen[MAX_CHAT_LENGTH];
+         MarkovGenerateContextual(job_ptr->message + 1, gen, MAX_CHAT_LENGTH);
+         if (job_ptr->player)
+         {
+            size_t len = strlen(gen);
+            snprintf(gen + len, MAX_CHAT_LENGTH - len, " %s", STRING(job_ptr->player->v.netname));
+            gen[MAX_CHAT_LENGTH - 1] = '\0';
+         }
+         UTIL_HostSay(pBot->pEdict, 1, gen);
+         MarkovAddSentence(gen);
+      } else {
+         UTIL_HostSay(pBot->pEdict, 1, job_ptr->message);
+         MarkovAddSentence(job_ptr->message);
+      }
       return JOB_TERMINATED; // job done
    }
 
