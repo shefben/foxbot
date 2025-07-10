@@ -185,14 +185,27 @@ static void MoveFSMUpdateCounts(MoveFSM *fsm, int from, int to) {
 
 void MoveFSMInit(MoveFSM *fsm, MoveState initial) {
     fsm->current = fsm->previous = initial;
+    bool uniform = true;
+    for(int i = 0; i < MOVE_STATE_COUNT && uniform; ++i)
+        for(int j = 0; j < MOVE_STATE_COUNT && uniform; ++j)
+            if(gMoveCounts[i][j] != 1)
+                uniform = false;
+
+    static const unsigned defaults[MOVE_STATE_COUNT][MOVE_STATE_COUNT] = {
+        {8, 1, 1},  // from NORMAL
+        {6, 3, 1},  // from HEAL
+        {6, 1, 3}   // from STAB
+    };
+
     for(int i = 0; i < MOVE_STATE_COUNT; ++i) {
         unsigned total = 0;
         for(int j = 0; j < MOVE_STATE_COUNT; ++j) {
-            fsm->counts[i][j] = gMoveCounts[i][j] ? gMoveCounts[i][j] : 1;
+            fsm->counts[i][j] = uniform ? defaults[i][j]
+                                       : (gMoveCounts[i][j] ? gMoveCounts[i][j] : 1);
             total += fsm->counts[i][j];
         }
         for(int j = 0; j < MOVE_STATE_COUNT; ++j)
-            fsm->transition[i][j] = (float)fsm->counts[i][j] / (float)total;
+            fsm->transition[i][j] = static_cast<float>(fsm->counts[i][j]) / (float)total;
     }
 }
 
@@ -297,14 +310,28 @@ static void WeaponFSMUpdateCounts(WeaponFSM *fsm, int from, int to) {
 
 void WeaponFSMInit(WeaponFSM *fsm, WeaponState initial) {
     fsm->current = fsm->previous = initial;
+    bool uniform = true;
+    for(int i = 0; i < WEAPON_STATE_COUNT && uniform; ++i)
+        for(int j = 0; j < WEAPON_STATE_COUNT && uniform; ++j)
+            if(gWeaponCounts[i][j] != 1)
+                uniform = false;
+
+    static const unsigned defaults[WEAPON_STATE_COUNT][WEAPON_STATE_COUNT] = {
+        {7, 2, 1, 1},  // from PRIMARY
+        {4, 5, 1, 1},  // from SECONDARY
+        {6, 1, 3, 0},  // from MELEE
+        {7, 1, 1, 1}   // from GRENADE
+    };
+
     for(int i = 0; i < WEAPON_STATE_COUNT; ++i) {
         unsigned total = 0;
         for(int j = 0; j < WEAPON_STATE_COUNT; ++j) {
-            fsm->counts[i][j] = gWeaponCounts[i][j] ? gWeaponCounts[i][j] : 1;
+            fsm->counts[i][j] = uniform ? defaults[i][j]
+                                       : (gWeaponCounts[i][j] ? gWeaponCounts[i][j] : 1);
             total += fsm->counts[i][j];
         }
         for(int j = 0; j < WEAPON_STATE_COUNT; ++j)
-            fsm->transition[i][j] = (float)fsm->counts[i][j] / (float)total;
+            fsm->transition[i][j] = static_cast<float>(fsm->counts[i][j]) / (float)total;
     }
 }
 
