@@ -257,7 +257,11 @@ int JobChat(bot_t *pBot) {
    job_struct *job_ptr = &pBot->job[pBot->currentJob];
 
    // make the bot pause whilst "typing"
-   pBot->f_move_speed = 0.0;
+   const float slowMove = pBot->f_max_speed / 4.0f;
+   if (pBot->f_move_speed > slowMove)
+      pBot->f_move_speed = slowMove;
+   else if (pBot->f_move_speed < -slowMove)
+      pBot->f_move_speed = -slowMove;
    pBot->f_side_speed = 0.0;
 
    // give the bot time to return to it's waypoint afterwards
@@ -272,6 +276,10 @@ int JobChat(bot_t *pBot) {
          job_ptr->phase_timer = pBot->f_think_time + random_float(2.0, 5.0);
       }
    }
+
+   // look about casually while "typing"
+   if (job_ptr->phase == 1 && job_ptr->phase_timer > pBot->f_think_time)
+      BotLookAbout(pBot);
 
    // end phase - say the message
    if (job_ptr->phase == 1 && job_ptr->phase_timer < pBot->f_think_time) {
@@ -304,7 +312,11 @@ int JobReport(bot_t *pBot) {
    job_struct *job_ptr = &pBot->job[pBot->currentJob];
 
    // make the bot pause whilst "typing"
-   pBot->f_move_speed = 0.0;
+   const float slowMove = pBot->f_max_speed / 4.0f;
+   if (pBot->f_move_speed > slowMove)
+      pBot->f_move_speed = slowMove;
+   else if (pBot->f_move_speed < -slowMove)
+      pBot->f_move_speed = -slowMove;
    pBot->f_side_speed = 0.0;
 
    // give the bot time to return to it's waypoint afterwards
@@ -319,6 +331,9 @@ int JobReport(bot_t *pBot) {
          job_ptr->phase_timer = pBot->f_think_time + random_float(2.0, 5.0);
       }
    }
+   // look about casually while "typing"
+   if (job_ptr->phase == 1 && job_ptr->phase_timer > pBot->f_think_time)
+      BotLookAbout(pBot);
 
    // end phase - say the message
    if (job_ptr->phase == 1 && job_ptr->phase_timer < pBot->f_think_time) {
