@@ -38,6 +38,12 @@
 #include "bot_weapons.h"
 #include "bot_markov.h"
 
+// Broadcast a signal to this bot's team with an optional location.
+void BotBroadcastSignal(bot_t *pBot, TeamSignalType signal, float duration, const Vector &location)
+{
+    if(!pBot) return;
+    ::BotBroadcastSignal(pBot->current_team, signal, duration, location);
+}
 extern chatClass chat; // bot chat stuff
 
 // team data /////////////////////////
