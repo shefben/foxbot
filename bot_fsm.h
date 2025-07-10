@@ -105,11 +105,14 @@ enum CombatState {
     COMBAT_APPROACH,
     COMBAT_ATTACK,
     COMBAT_RETREAT,
+    COMBAT_FLANK,
+    COMBAT_COVER,
     COMBAT_STATE_COUNT
 };
 
 // Approach and attack are common transitions when an enemy is visible
-// Bots retreat when low on health or outnumbered
+// Bots flank to find better angles or seek cover when pressured
+// Retreat is chosen when health is low or enemies overwhelm
 
 struct CombatFSM {
     CombatState current;

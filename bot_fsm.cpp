@@ -590,12 +590,17 @@ void BotUpdateCombat(bot_t *pBot) {
 
         if(pBot->pEdict->v.health < 25 || pBot->desired_reaction_state == REACT_PANIC)
             next = COMBAT_RETREAT;
+        else if(PlayerHealthPercent(pBot->pEdict) < 50 &&
+                pBot->visEnemyCount > pBot->visAllyCount)
+            next = COMBAT_COVER;
         else if(pBot->desired_reaction_state == REACT_ALERT)
             next = COMBAT_ATTACK;
         else if(dist < 200.0f)
             next = COMBAT_ATTACK;
         else if(dist > 600.0f)
             next = COMBAT_APPROACH;
+        else if(dist > 300.0f && random_long(0,100) < 30)
+            next = COMBAT_FLANK;
 
         if(PlayerHealthPercent(pBot->pEdict) < 30 &&
            pBot->visEnemyCount > pBot->visAllyCount)
@@ -652,6 +657,20 @@ void BotApplyCombatState(bot_t *pBot) {
             int retreat = BotFindRetreatPoint(pBot, 800, pBot->enemy.ptr->v.origin);
             if(retreat != -1)
                 pBot->goto_wp = retreat;
+            break;
+        }
+        case COMBAT_FLANK: {
+            BotFlankEnemy(pBot);
+            job_struct *newJob = InitialiseNewJob(pBot, JOB_PURSUE_ENEMY);
+            if(newJob) {
+                newJob->player = pBot->enemy.ptr;
+                newJob->origin = pBot->enemy.ptr->v.origin;
+                SubmitNewJob(pBot, JOB_PURSUE_ENEMY, newJob);
+            }
+            break;
+        }
+        case COMBAT_COVER: {
+            BotSeekCover(pBot);
             break;
         }
         case COMBAT_ATTACK:
