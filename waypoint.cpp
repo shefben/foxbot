@@ -2014,6 +2014,105 @@ void WaypointSave() {
    fclose(bfp);
 }
 
+bool WaypointCacheSave() {
+   char filename[256];
+   char mapname[64];
+   WAYPOINT_HDR header;
+
+   strcpy(header.filetype, "FoXBot");
+   header.waypoint_file_version = WAYPOINT_VERSION;
+   header.waypoint_file_flags = 0;
+   header.number_of_waypoints = num_waypoints;
+
+   memset(header.mapname, 0, sizeof header.mapname);
+   strncpy(header.mapname, STRING(gpGlobals->mapname), 31);
+   header.mapname[31] = 0;
+
+   strncpy(mapname, STRING(gpGlobals->mapname), sizeof(mapname) - 1);
+   mapname[sizeof(mapname) - 1] = '\0';
+   strncat(mapname, "_cache.fwp", sizeof(mapname) - strlen(mapname) - 1);
+
+   UTIL_BuildFileName(filename, 255, "mapdata", mapname);
+   FILE *bfp = fopen(filename, "wb");
+   if (bfp == nullptr)
+      return false;
+
+   fwrite(&header, sizeof header, 1, bfp);
+
+   for (int index = 0; index < num_waypoints; index++)
+      fwrite(&waypoints[index], sizeof waypoints[0], 1, bfp);
+
+   for (int index = 0; index < num_waypoints; index++) {
+      PATH *p = paths[index];
+      short int num = 0;
+      while (p != nullptr) {
+         for (int i = 0; i < MAX_PATH_INDEX; i++)
+            if (p->index[i] != -1)
+               ++num;
+         p = p->next;
+      }
+      fwrite(&num, sizeof num, 1, bfp);
+      p = paths[index];
+      while (p != nullptr) {
+         for (int i = 0; i < MAX_PATH_INDEX; i++)
+            if (p->index[i] != -1)
+               fwrite(&p->index[i], sizeof p->index[0], 1, bfp);
+         p = p->next;
+      }
+   }
+
+   fwrite(&waypoint_author, sizeof(char), 255, bfp);
+   fclose(bfp);
+   return true;
+}
+
+bool WaypointCacheLoad() {
+   char filename[256];
+   char mapname[64];
+   WAYPOINT_HDR header;
+
+   strncpy(mapname, STRING(gpGlobals->mapname), sizeof(mapname) - 1);
+   mapname[sizeof(mapname) - 1] = '\0';
+   strncat(mapname, "_cache.fwp", sizeof(mapname) - strlen(mapname) - 1);
+   UTIL_BuildFileName(filename, 255, "mapdata", mapname);
+   FILE *bfp = fopen(filename, "rb");
+   if (bfp == nullptr)
+      return false;
+
+   fread(&header, sizeof header, 1, bfp);
+   header.filetype[7] = 0;
+   if (strcmp(header.filetype, "FoXBot") != 0 ||
+       header.waypoint_file_version != WAYPOINT_VERSION ||
+       strcasecmp(header.mapname, STRING(gpGlobals->mapname)) != 0) {
+      fclose(bfp);
+      return false;
+   }
+
+   WaypointInit();
+   num_waypoints = 0;
+   for (int i = 0; i < header.number_of_waypoints && i < MAX_WAYPOINTS; i++) {
+      fread(&waypoints[i], sizeof(WAYPOINT), 1, bfp);
+      ++num_waypoints;
+   }
+
+   for (int index = 0; index < num_waypoints; index++) {
+      short int num = 0;
+      short int path_index = 0;
+      fread(&num, sizeof num, 1, bfp);
+      for (int i = 0; i < num; i++) {
+         fread(&path_index, sizeof path_index, 1, bfp);
+         WaypointAddPath(index, path_index);
+      }
+   }
+
+   g_waypoint_paths = true;
+   fread(&waypoint_author, sizeof(char), 255, bfp);
+   waypoint_author[254] = '\0';
+   fclose(bfp);
+   WaypointRouteInit();
+   return true;
+}
+
 // This function can check to see if bots will be able to get from one
 // waypoint to another.
 bool WaypointReachable(Vector v_src, Vector v_dest, const edict_t *pEntity) {
