@@ -284,7 +284,11 @@ int JobChat(bot_t *pBot) {
    job_struct *job_ptr = &pBot->job[pBot->currentJob];
 
    // make the bot pause whilst "typing"
-   pBot->f_move_speed = 0.0;
+   const float slowMove = pBot->f_max_speed / 4.0f;
+   if (pBot->f_move_speed > slowMove)
+      pBot->f_move_speed = slowMove;
+   else if (pBot->f_move_speed < -slowMove)
+      pBot->f_move_speed = -slowMove;
    pBot->f_side_speed = 0.0;
 
    // give the bot time to return to it's waypoint afterwards
@@ -299,6 +303,10 @@ int JobChat(bot_t *pBot) {
          job_ptr->phase_timer = pBot->f_think_time + random_float(2.0, 5.0);
       }
    }
+
+   // look about casually while "typing"
+   if (job_ptr->phase == 1 && job_ptr->phase_timer > pBot->f_think_time)
+      BotLookAbout(pBot);
 
    // end phase - say the message
    if (job_ptr->phase == 1 && job_ptr->phase_timer < pBot->f_think_time) {
@@ -331,7 +339,11 @@ int JobReport(bot_t *pBot) {
    job_struct *job_ptr = &pBot->job[pBot->currentJob];
 
    // make the bot pause whilst "typing"
-   pBot->f_move_speed = 0.0;
+   const float slowMove = pBot->f_max_speed / 4.0f;
+   if (pBot->f_move_speed > slowMove)
+      pBot->f_move_speed = slowMove;
+   else if (pBot->f_move_speed < -slowMove)
+      pBot->f_move_speed = -slowMove;
    pBot->f_side_speed = 0.0;
 
    // give the bot time to return to it's waypoint afterwards
@@ -346,6 +358,9 @@ int JobReport(bot_t *pBot) {
          job_ptr->phase_timer = pBot->f_think_time + random_float(2.0, 5.0);
       }
    }
+   // look about casually while "typing"
+   if (job_ptr->phase == 1 && job_ptr->phase_timer > pBot->f_think_time)
+      BotLookAbout(pBot);
 
    // end phase - say the message
    if (job_ptr->phase == 1 && job_ptr->phase_timer < pBot->f_think_time) {
@@ -3642,6 +3657,21 @@ void CheckStreakComments(bot_t *pBot) {
       return;
 
    job_struct *newJob = nullptr;
+
+   if(pBot->frustration > 0.7f && BufferedJobIndex(pBot, JOB_CHAT) == -1) {
+      newJob = InitialiseNewJob(pBot, JOB_CHAT, true);
+      if(newJob) {
+         snprintf(newJob->message, MAX_CHAT_LENGTH, "I'm getting frustrated!");
+         SubmitNewJob(pBot, JOB_CHAT, newJob);
+      }
+      pBot->desired_combat_state = COMBAT_ATTACK;
+   } else if(pBot->excitement > 0.7f && BufferedJobIndex(pBot, JOB_CHAT) == -1) {
+      newJob = InitialiseNewJob(pBot, JOB_CHAT, true);
+      if(newJob) {
+         snprintf(newJob->message, MAX_CHAT_LENGTH, "Woohoo!");
+         SubmitNewJob(pBot, JOB_CHAT, newJob);
+      }
+   }
 
    if (pBot->killStreak >= 3 && pBot->killStreak % 3 == 0) {
       newJob = InitialiseNewJob(pBot, JOB_CHAT, true);

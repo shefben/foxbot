@@ -69,6 +69,9 @@ extern int num_waypoints; // number of waypoints currently in use
 extern edict_t *pent_info_ctfdetect;
 
 static float roleCheckTimer = 30; // set fairly high so players can join first
+static float strategyCheckTimer = 0.0f; // timer for team strategy evaluations
+static int teamClassTotals[4][10];
+static int enemyClassTotals[4][10];
 
 struct TeamLayout {
    List<bot_t *> attackers[4];
@@ -192,6 +195,9 @@ static void BotSenseEnvironment(bot_t *pBot);
 static void BotFight(bot_t *pBot);
 static void BotSpectatorDebug(bot_t *pBot);
 static bool BotIdleMicroMovement(bot_t *pBot);
+static void EvaluateTeamStrategy();
+static int ChooseBalancedClassForTeam(int team);
+static void BotChangeClassBalanced(bot_t *pBot, int cls);
 
 inline edict_t *CREATE_FAKE_CLIENT(const char *netname) {
    if (debug_engine) {
@@ -199,8 +205,112 @@ inline edict_t *CREATE_FAKE_CLIENT(const char *netname) {
       if (fp != nullptr) {
          fprintf(fp, "createfakeclient: %s\n", netname);
          fclose(fp);
+  }
+}
+
+// Evaluate team composition and enemy strategy periodically
+static void EvaluateTeamStrategy() {
+   if (strategyCheckTimer > gpGlobals->time && strategyCheckTimer < gpGlobals->time + 300.0f)
+      return;
+
+   strategyCheckTimer = gpGlobals->time + 180.0f;
+
+   memset(teamClassTotals, 0, sizeof(teamClassTotals));
+
+   for (int i = 1; i <= gpGlobals->maxClients; ++i) {
+      edict_t *pPlayer = INDEXENT(i);
+      if (!pPlayer || pPlayer->free || !IsAlive(pPlayer))
+         continue;
+
+      const int team = UTIL_GetTeam(pPlayer);
+      const int cls = pPlayer->v.playerclass;
+
+      if (team < 0 || team >= 4 || cls < 1 || cls > 9)
+         continue;
+
+      ++teamClassTotals[team][cls];
+   }
+
+   for (int t = 0; t < 4; ++t) {
+      for (int c = 1; c <= 9; ++c) {
+         int cnt = 0;
+         for (int o = 0; o < 4; ++o) {
+            if (o == t)
+               continue;
+            if (team_allies[t] & 1 << o)
+               continue;
+            cnt += teamClassTotals[o][c];
+         }
+         enemyClassTotals[t][c] = cnt;
       }
    }
+}
+
+// pick a class that is under represented on the given team
+static int ChooseBalancedClassForTeam(int team) {
+   int bestClass = -1;
+   int lowest = 9999;
+
+   for (int c = 1; c <= 9; ++c) {
+      int class_not_allowed;
+      if (c <= 7)
+         class_not_allowed = team_class_limits[team] & 1 << (c - 1);
+      else
+         class_not_allowed = team_class_limits[team] & 1 << c;
+
+      if (class_not_allowed)
+         continue;
+
+      if (teamClassTotals[team][c] < lowest) {
+         lowest = teamClassTotals[team][c];
+         bestClass = c;
+      }
+   }
+
+   if (bestClass == -1)
+      bestClass = random_long(1, 9);
+
+   return bestClass;
+}
+
+static void BotChangeClassBalanced(bot_t *pBot, int cls) {
+   char c_class[16];
+   switch (cls) {
+   case 1:
+      strcpy(c_class, "scout");
+      break;
+   case 2:
+      strcpy(c_class, "sniper");
+      break;
+   case 3:
+      strcpy(c_class, "soldier");
+      break;
+   case 4:
+      strcpy(c_class, "demoman");
+      break;
+   case 5:
+      strcpy(c_class, "medic");
+      break;
+   case 6:
+      strcpy(c_class, "hwguy");
+      break;
+   case 7:
+      strcpy(c_class, "pyro");
+      break;
+   case 8:
+      strcpy(c_class, "spy");
+      break;
+   case 9:
+      strcpy(c_class, "engineer");
+      break;
+   default:
+      return;
+   }
+
+   pBot->bot_class = cls;
+   FakeClientCommand(pBot->pEdict, c_class, nullptr, nullptr);
+   pBot->deathsTillClassChange = 4;
+}
    return (*g_engfuncs.pfnCreateFakeClient)(netname);
 }
 
@@ -366,6 +476,8 @@ void BotSpawnInit(bot_t *pBot) {
    pBot->killStreak = 0;
    pBot->deathStreak = 0;
    pBot->f_lastFlagCapture = 0.0f;
+   pBot->frustration = 0.0f;
+   pBot->excitement = 0.0f;
 
    pBot->b_use_health_station = false;
    pBot->f_use_health_time = 0.0;
@@ -942,6 +1054,8 @@ void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char 
       }
 
       pBot->f_humour_time = pBot->f_think_time + random_float(60.0, 180.0);
+      pBot->frustration = 0.0f;
+      pBot->excitement = 0.0f;
 
       pBot->sideRouteTolerance = 400; // not willing to branch far initially
 
@@ -3849,6 +3963,13 @@ void BotThink(bot_t *pBot) {
 
    if (pBot->name[0] == 0) // name filled in yet?
       strcpy(pBot->name, STRING(pBot->pEdict->v.netname));
+
+   EvaluateTeamStrategy();
+   if (pBot->deathsTillClassChange <= 0 && !pBot->lockClass && mod_id == TFC_DLL && pBot->pEdict->v.deadflag == DEAD_NO) {
+      const int newClass = ChooseBalancedClassForTeam(pBot->current_team);
+      if (newClass != pBot->pEdict->v.playerclass)
+         BotChangeClassBalanced(pBot, newClass);
+   }
 
    BotRoleCheck(pBot);
    BotComms(pBot);

@@ -33,6 +33,7 @@
 #include "bot_func.h"
 #include "bot_markov.h"
 #include "engine.h"
+#include "waypoint.h"
 
 #include "meta_api.h" //meta mod"
 #include <algorithm>
@@ -52,6 +53,8 @@ extern edict_t *clients[32];
 
 static bool name_message_check(const char *msg_string, const char *name_string);
 static void StripFormatting(char *dst, const char *src);
+static void TrackPlayerWaypoint(edict_t *pPlayer);
+static void CheckEntityEvent(const char *msg);
 
 // my external stuff for scripted message intercept
 /*extern bool blue_av[8];
@@ -1072,12 +1075,48 @@ static void StripFormatting(char *dst, const char *src) {
    *dst = '\0';
 }
 
+static void TrackPlayerWaypoint(edict_t *pPlayer) {
+   if (!pPlayer)
+      return;
+   const int team = UTIL_GetTeam(pPlayer);
+   const int wp = WaypointFindNearest_E(pPlayer, REACHABLE_RANGE, team);
+   if (wp == -1)
+      return;
+   const int playerIndex = ENTINDEX(pPlayer) - 1;
+   for (int i = 0; i < 32; ++i) {
+      if (bots[i].is_used)
+         OpponentRememberWaypoint(bots[i].opponents[playerIndex], wp);
+   }
+}
+
+static void CheckEntityEvent(const char *msg) {
+   if (!msg)
+      return;
+   char clean[256];
+   StripFormatting(clean, msg);
+   char lower[256];
+   size_t len = strlen(clean);
+   for (size_t i = 0; i < len && i < sizeof(lower) - 1; ++i)
+      lower[i] = static_cast<char>(tolower(clean[i]));
+   lower[len] = '\0';
+
+   if (strstr(lower, "flag") || strstr(lower, "control point")) {
+      for (int t = 0; t < 32; ++t) {
+         if (clients[t] && name_message_check(lower, STRING(clients[t]->v.netname))) {
+            TrackPlayerWaypoint(clients[t]);
+         }
+      }
+   }
+}
+
 void pfnServerPrint(const char *szMsg) {
    if (debug_engine) {
       fp = UTIL_OpenFoxbotLog();
       fprintf(fp, "pfnServerPrint: %s\n", szMsg);
       fclose(fp);
    }
+
+   CheckEntityEvent(szMsg);
 
    // snprintf(sz_error_check,250,"pfnServerPrint: %s\n",szMsg);
 
