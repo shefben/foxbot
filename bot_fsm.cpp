@@ -30,6 +30,11 @@ float g_teamSignalExpire[MAX_TEAMS];
 float gBotAccuracy[32];
 float gBotReaction[32];
 
+// Track previous streak values so adjustments only occur when
+// a new kill or death is registered.
+static int gPrevKillStreak[32];
+static int gPrevDeathStreak[32];
+
 static void load_metrics(const char *file) {
     FILE *fp = fopen(file, "rb");
     if(!fp) {
@@ -158,6 +163,34 @@ void SaveBotMetrics() {
     }
     UTIL_BuildFileName(fname, 255, (char*)"bot_metrics.dat", NULL);
     save_metrics(fname);
+}
+
+// Adjust per-bot metrics according to kill/death streaks so that
+// performance gradually adapts to recent events.
+static void UpdateMetricsFromStreaks(bot_t *bot) {
+    if(!bot) return;
+    const int idx = bot - bots;
+    if(idx < 0 || idx >= 32) return;
+
+    int deltaKill = bot->killStreak - gPrevKillStreak[idx];
+    if(deltaKill > 0) {
+        bot->accuracy += 0.02f * static_cast<float>(deltaKill);
+        if(bot->accuracy > 1.0f) bot->accuracy = 1.0f;
+        bot->reaction_speed += 0.01f * static_cast<float>(deltaKill);
+        if(bot->reaction_speed > 1.0f) bot->reaction_speed = 1.0f;
+    }
+    if(deltaKill != 0)
+        gPrevKillStreak[idx] = bot->killStreak;
+
+    int deltaDeath = bot->deathStreak - gPrevDeathStreak[idx];
+    if(deltaDeath > 0) {
+        bot->accuracy -= 0.02f * static_cast<float>(deltaDeath);
+        if(bot->accuracy < 0.0f) bot->accuracy = 0.0f;
+        bot->reaction_speed -= 0.01f * static_cast<float>(deltaDeath);
+        if(bot->reaction_speed < 0.0f) bot->reaction_speed = 0.0f;
+    }
+    if(deltaDeath != 0)
+        gPrevDeathStreak[idx] = bot->deathStreak;
 }
 
 static void BotFSMUpdateCounts(BotFSM *fsm, int from, int to) {
@@ -861,6 +894,7 @@ void FSMPeriodicSave(float currentTime) {
 
 void BotUpdateReaction(bot_t *pBot) {
     if(!pBot) return;
+    UpdateMetricsFromStreaks(pBot);
     float allyHealth = GetAverageAllyHealth(pBot);
     int teamKills = CountRecentAllyKills(pBot);
     ReactionState next = ReactionFSMNextState(&pBot->reactFsm, allyHealth, teamKills);
