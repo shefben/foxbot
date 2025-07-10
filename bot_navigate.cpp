@@ -31,6 +31,7 @@
 #include "bot.h"
 #include "bot_fsm.h"
 #include "waypoint.h"
+#include "bot_rl.h"
 
 #include "bot_func.h"
 #include "bot_job_think.h"
@@ -1368,10 +1369,11 @@ static bool BotUpdateRoute(bot_t *pBot) {
 
       if (waypointTouched) {
          if (nextWP != -1 && nextWP < num_waypoints) {
+            RL_RecordPathResult(pBot->current_wp, nextWP, true);
             new_current_wp = nextWP;
             pBot->routeFailureTally = 0; // all is well, reset this
-         } else                          // bot has no route to it's goal
-         {
+         } else {                        // bot has no route to it's goal
+            RL_RecordPathResult(pBot->current_wp, nextWP, false);
             ++pBot->routeFailureTally; // chalk up another route failure
             new_current_wp = pBot->current_wp;
          }
@@ -2023,6 +2025,9 @@ void BotFindSideRoute(bot_t *pBot) {
    static constexpr WPT_INT32 ignoreFlags = 0 + (W_FL_DELETED | W_FL_AIMING | W_FL_TFC_PL_DEFEND | W_FL_TFC_PIPETRAP | W_FL_TFC_SENTRY | W_FL_SNIPER | W_FL_TFC_DETPACK_CLEAR | W_FL_TFC_DETPACK_SEAL | W_FL_TFC_TELEPORTER_ENTRANCE |
                                              W_FL_TFC_TELEPORTER_EXIT | W_FL_HEALTH | W_FL_ARMOR | W_FL_AMMO | W_FL_TFC_JUMP);
 
+   int bestWP = -1;
+   float bestScore = -1.0f;
+
    // find out if the bot is at a junction waypoint by counting
    // the number of paths connected from it
    PATH *p = paths[pBot->current_wp];
@@ -2131,15 +2136,14 @@ void BotFindSideRoute(bot_t *pBot) {
 
          nextWP = WaypointRouteFromTo(nextWP, i, pBot->current_team);
       }
-
-      // found a suitable waypoint
-      pBot->branch_waypoint = i;
-
-      //	char msg[96]; //DebugMessageOfDoom!
-      //	sprintf(msg, "found a side route, tolerance: %d, re-think in %f seconds",
-      //		pBot->sideRouteTolerance, pBot->f_side_route_time - pBot->f_think_time);
-      //	UTIL_HostSay(pBot->pEdict, 0, msg);
-
+      float score = RL_GetPathWeight(pBot->current_wp, newPredictedWP);
+      if(score > bestScore) {
+         bestScore = score;
+         bestWP = i;
+      }
+   }
+   if(bestWP != -1) {
+      pBot->branch_waypoint = bestWP;
       return;
    }
 }
@@ -2186,6 +2190,7 @@ bool BotChangeRoute(bot_t *pBot) {
 
    // used for remembering the best waypoint found
    int newBranchWP = -1;
+   float bestScore = -1.0f;
 
    // bit field of waypoint types to ignore
    static constexpr WPT_INT32 ignoreFlags = 0 + (W_FL_DELETED | W_FL_AIMING | W_FL_TFC_PL_DEFEND | W_FL_TFC_PIPETRAP | W_FL_TFC_SENTRY | W_FL_SNIPER | W_FL_TFC_TELEPORTER_ENTRANCE | W_FL_TFC_TELEPORTER_EXIT | W_FL_TFC_JUMP | W_FL_LIFT);
@@ -2216,8 +2221,11 @@ bool BotChangeRoute(bot_t *pBot) {
 
       // the best waypoints have no route back through the bot's current waypoint
       if (interimDist == -1) {
-         newBranchWP = index;
-         break;
+         float score = RL_GetPathWeight(pBot->current_wp, newPredictedWP);
+         if(score > bestScore) {
+            bestScore = score;
+            newBranchWP = index;
+         }
       } else {
          // distance from this waypoint to the bots goal
          const int newGoalDistance = WaypointDistanceFromTo(index, goalWP, pBot->current_team);
@@ -2228,9 +2236,12 @@ bool BotChangeRoute(bot_t *pBot) {
          // look for a waypoint that will take the bot nearer to it's goal
          // without coming back through the bots current waypoint
          if (newGoalDistance < maxRouteDistance) {
-            newBranchWP = index;
-            break;
-         }
+            float score = RL_GetPathWeight(pBot->current_wp, newPredictedWP);
+            if(score > bestScore) {
+               bestScore = score;
+               newBranchWP = index;
+            }
+        }
       }
    }
 
