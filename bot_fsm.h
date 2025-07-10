@@ -156,4 +156,10 @@ void FSMPeriodicSave(float currentTime);
 void SaveFSMCounts();
 void LoadFSMCounts();
 
+void SaveBotMetrics();
+void LoadBotMetrics();
+
+extern float gBotAccuracy[32];
+extern float gBotReaction[32];
+
 #endif // BOT_FSM_H

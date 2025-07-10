@@ -67,6 +67,11 @@ extern int team_allies[4];
 
 extern bot_t bots[32];
 
+// metric update helpers
+void BotMetricOnKill(bot_t *bot);
+void BotMetricOnDeath(bot_t *bot);
+void BotMetricOnDamage(bot_t *bot, int damage);
+
 // list of which player indices carry a flag(updated each frame)
 // You should call PlayerHasFlag() rather than use this array directly, because of
 // Half-Life engine complications(client list starts with index of 1 instead of 0).
@@ -233,6 +238,32 @@ void BotUpdateSkillInaccuracy() {
    //	UTIL_BotLogPrintf("New bot accuracy levels %f %f %f %f %f\n",
    //		bot_max_inaccuracy[0], bot_max_inaccuracy[1], bot_max_inaccuracy[2],
    //		bot_max_inaccuracy[3], bot_max_inaccuracy[4]);
+}
+
+void BotMetricOnKill(bot_t *bot) {
+   if(!bot) return;
+   bot->accuracy += 0.05f;
+   if(bot->accuracy > 1.0f) bot->accuracy = 1.0f;
+   bot->reaction_speed += 0.03f;
+   if(bot->reaction_speed > 1.0f) bot->reaction_speed = 1.0f;
+}
+
+void BotMetricOnDeath(bot_t *bot) {
+   if(!bot) return;
+   bot->accuracy -= 0.05f;
+   if(bot->accuracy < 0.0f) bot->accuracy = 0.0f;
+   bot->reaction_speed -= 0.03f;
+   if(bot->reaction_speed < 0.0f) bot->reaction_speed = 0.0f;
+}
+
+void BotMetricOnDamage(bot_t *bot, int damage) {
+   if(!bot) return;
+   float delta = static_cast<float>(damage) / 100.0f;
+   if(delta > 0.1f) delta = 0.1f;
+   bot->accuracy -= delta;
+   if(bot->accuracy < 0.0f) bot->accuracy = 0.0f;
+   bot->reaction_speed -= delta * 0.5f;
+   if(bot->reaction_speed < 0.0f) bot->reaction_speed = 0.0f;
 }
 
 // Set pipebombs off if they are near to the bots enemy.
@@ -1285,7 +1316,7 @@ static Vector BotBodyTarget(const edict_t *pBotEnemy, bot_t *pBot) {
          if (pBot->enemy.f_firstSeen + 2.0 > pBot->f_think_time)
             aim_error += (pBot->bot_skill + 1) * random_float(5.0, 20.0);
 
-         const float aim_offset = bot_snipe_max_inaccuracy[pBot->bot_skill] + aim_error;
+         const float aim_offset = (bot_snipe_max_inaccuracy[pBot->bot_skill] + aim_error) * (1.0f - pBot->accuracy);
          switch (pBot->bot_skill) {
          case 0:
             pBot->aimDrift.x = random_float(-aim_offset, aim_offset) * f_scale;
@@ -1327,7 +1358,7 @@ static Vector BotBodyTarget(const edict_t *pBotEnemy, bot_t *pBot) {
          if (pBot->enemy.f_firstSeen + 2.0 > pBot->f_think_time)
             aim_error += (pBot->bot_skill + 1) * random_float(5.0, 20.0);
 
-         const float aim_offset = bot_max_inaccuracy[pBot->bot_skill] + aim_error;
+         const float aim_offset = (bot_max_inaccuracy[pBot->bot_skill] + aim_error) * (1.0f - pBot->accuracy);
          switch (pBot->bot_skill) {
          case 0:
             pBot->aimDrift.x = random_float(-aim_offset, aim_offset) * f_scale;
@@ -1523,7 +1554,9 @@ bool BotFireWeapon(const Vector &v_enemy, bot_t *pBot, const int weapon_choice) 
             const float min_delay = pDelay[select_index].primary_min_delay[pBot->bot_skill];
             const float max_delay = pDelay[select_index].primary_max_delay[pBot->bot_skill];
 
-            pBot->f_shoot_time = pBot->f_think_time + base_delay + random_float(min_delay, max_delay);
+            float delay = base_delay + random_float(min_delay, max_delay);
+            delay *= 1.0f + (1.0f - pBot->reaction_speed);
+            pBot->f_shoot_time = pBot->f_think_time + delay;
             return true;
          } else {
             pEdict->v.button |= IN_ATTACK;           // charge the weapon

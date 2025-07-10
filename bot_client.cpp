@@ -37,6 +37,10 @@
 #include "bot_navigate.h"
 #include "bot_weapons.h"
 
+void BotMetricOnKill(bot_t *bot);
+void BotMetricOnDeath(bot_t *bot);
+void BotMetricOnDamage(bot_t *bot, int damage);
+
 #include "tf_defs.h"
 
 // types of damage to ignore...
@@ -540,7 +544,9 @@ void BotClient_Valve_Damage(void *p, const int bot_index) {
 
          // if the bot didn't spawn very recently
          if (gpGlobals->time > bots[bot_index].last_spawn_time + 1.0f) {
-            bots[bot_index].f_injured_time = gpGlobals->time;
+           bots[bot_index].f_injured_time = gpGlobals->time;
+
+            BotMetricOnDamage(&bots[bot_index], damage_taken);
 
             // stop using health or HEV stations...
             bots[bot_index].b_use_health_station = false;
@@ -625,6 +631,7 @@ void BotClient_Valve_DeathMsg(void *p, int bot_index) {
             if (indexb != -1 && victim_edict != nullptr) {
                if (UTIL_GetTeam(killer_edict) != UTIL_GetTeam(victim_edict)) {
                   bots[indexb].killed_edict = victim_edict;
+                  BotMetricOnKill(&bots[indexb]);
                }
             }
          }
@@ -643,8 +650,10 @@ void BotClient_Valve_DeathMsg(void *p, int bot_index) {
             if (indexb != -1 && victim_edict != nullptr) {
                if (UTIL_GetTeam(killer_edict) != UTIL_GetTeam(victim_edict)) {
                   bots[indexb].killed_edict = victim_edict;
+                  BotMetricOnKill(&bots[indexb]);
                }
             }
+            BotMetricOnDeath(&bots[index]);
          }
       }
    }

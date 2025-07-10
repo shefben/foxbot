@@ -253,6 +253,9 @@ void player(entvars_t *pev) {
 // This function initializes a bots data to safe values.
 // i.e. it clears the bots "mind" before it spawns or respawns
 void BotSpawnInit(bot_t *pBot) {
+   int index = pBot - bots;
+   pBot->accuracy = gBotAccuracy[index];
+   pBot->reaction_speed = gBotReaction[index];
    // v1.1.0.8 on xp..(or possibly fast machines)
    // had the bot crash if it tried to respawn too soon!
    // so put a pause in to stop it pressing 'fire' too soon...
