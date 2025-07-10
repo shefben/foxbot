@@ -28,6 +28,8 @@
 #ifndef BOT_FUNC_H
 #define BOT_FUNC_H
 
+#include "bot_fsm.h"
+
 // prototypes of bot functions...
 
 void BotSpawnInit(bot_t *pBot);
@@ -57,6 +59,37 @@ void BotEnemyCheck(bot_t *pBot);
 bool BotFireWeapon(const Vector &v_enemy, bot_t *pBot, int weapon_choice);
 
 void BotShootAtEnemy(bot_t *pBot);
+
+// finite state machine helpers
+void BotFSMInit(BotFSM *fsm, BotState initial);
+BotState BotFSMNextState(BotFSM *fsm);
+void BotUpdateState(bot_t *pBot);
+void MoveFSMInit(MoveFSM *fsm, MoveState initial);
+MoveState MoveFSMNextState(MoveFSM *fsm);
+void BotUpdateMovement(bot_t *pBot);
+void JobFSMInit(JobFSM *fsm, int initial);
+int JobFSMNextState(JobFSM *fsm);
+void BotUpdateJob(bot_t *pBot);
+void WeaponFSMInit(WeaponFSM *fsm, WeaponState initial);
+WeaponState WeaponFSMNextState(WeaponFSM *fsm);
+void BotUpdateWeapon(bot_t *pBot);
+void ChatFSMInit(ChatFSM *fsm, ChatState initial);
+ChatState ChatFSMNextState(ChatFSM *fsm);
+void BotUpdateChat(bot_t *pBot);
+void CombatFSMInit(CombatFSM *fsm, CombatState initial);
+CombatState CombatFSMNextState(CombatFSM *fsm);
+void BotUpdateCombat(bot_t *pBot);
+void BotApplyCombatState(bot_t *pBot);
+void AimFSMInit(AimFSM *fsm, AimState initial);
+AimState AimFSMNextState(AimFSM *fsm);
+void BotUpdateAim(bot_t *pBot);
+void NavFSMInit(NavFSM *fsm, NavState initial);
+NavState NavFSMNextState(NavFSM *fsm);
+void BotUpdateNavigation(bot_t *pBot);
+void BotApplyNavState(bot_t *pBot);
+void ReactionFSMInit(ReactionFSM *fsm, ReactionState initial);
+ReactionState ReactionFSMNextState(ReactionFSM *fsm);
+void BotUpdateReaction(bot_t *pBot);
 
 // DrEvils functions.
 int BotNadeHandler(bot_t *pBot, bool timed, char nadeTyp);

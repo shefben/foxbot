@@ -38,6 +38,8 @@
 #include "bot_job_think.h"
 #include "bot_navigate.h"
 #include "bot_weapons.h"
+#include "bot_fsm.h"
+#include "bot_markov.h"
 
 #include <sys/stat.h>
 
@@ -283,11 +285,29 @@ void BotSpawnInit(bot_t *pBot) {
    pBot->f_max_speed = CVAR_GET_FLOAT("sv_maxspeed");
    pBot->prev_speed = 0.0; // fake "paused" since bot is NOT stuck
 
+   BotFSMInit(&pBot->fsm, BOT_STATE_IDLE);
+   MoveFSMInit(&pBot->moveFsm, MOVE_NORMAL);
+   JobFSMInit(&pBot->jobFsm, JOB_ROAM);
+   WeaponFSMInit(&pBot->weaponFsm, WEAPON_PRIMARY);
+   ChatFSMInit(&pBot->chatFsm, CHAT_IDLE);
+   CombatFSMInit(&pBot->combatFsm, COMBAT_IDLE);
+   NavFSMInit(&pBot->navFsm, NAV_STRAIGHT);
+   AimFSMInit(&pBot->aimFsm, AIM_BODY);
+   ReactionFSMInit(&pBot->reactFsm, REACT_CALM);
+   pBot->desired_weapon_state = WEAPON_PRIMARY;
+   pBot->desired_combat_state = COMBAT_IDLE;
+   pBot->desired_nav_state = NAV_STRAIGHT;
+   pBot->desired_aim_state = AIM_BODY;
+   pBot->desired_reaction_state = REACT_CALM;
+   pBot->fake_ping = random_long(20, 80);
+   pBot->f_next_ping_update = gpGlobals->time + 2.0f;
+
    pBot->job[pBot->currentJob].phase = 0;
 
    pBot->f_find_item_time = 0.0;
 
    pBot->strafe_mod = STRAFE_MOD_NORMAL;
+   pBot->f_last_reply_time = 0.0f;
 
    // enemy stuff
    pBot->enemy.ptr = nullptr;
@@ -910,6 +930,7 @@ void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char 
          pBot->newmsg = false;
          pBot->message[0] = '\0';
          pBot->msgstart[0] = '\0';
+         pBot->f_last_reply_time = 0.0f;
       }
 
       if (mod_id == TFC_DLL)
@@ -2856,6 +2877,26 @@ static void BotComms(bot_t *pBot) {
             } else if (random_long(0, 100) <= 50) {
                EMIT_SOUND_DYN2(pBot->pEdict, CHAN_VOICE, "misc/party1.wav", 1.0, ATTN_NORM, 0, 100);
             }
+         } else {
+            char fromName[64] = {0};
+            const char *msgPtr = pBot->message;
+            if (strncasecmp("(TEAM)", msgPtr + 1, 6) == 0)
+               msgPtr += 8;
+            strncpy(fromName, msgPtr, 63);
+            char *colon = strchr(fromName, ':');
+            if (colon) *colon = '\0';
+            const char *text = strchr(msgPtr, ':');
+            if (text) text += 2; else text = msgPtr;
+            MarkovAddSentence(text);
+            if (pBot->f_last_reply_time + 10.0f < pBot->f_think_time && random_long(1, 1000) < bot_chat) {
+               job_struct *rj = InitialiseNewJob(pBot, JOB_CHAT);
+               if (rj) {
+                  MarkovGenerate(rj->message, MAX_CHAT_LENGTH);
+                  rj->message[MAX_CHAT_LENGTH-1] = '\0';
+                  SubmitNewJob(pBot, JOB_CHAT, rj);
+                  pBot->f_last_reply_time = pBot->f_think_time;
+               }
+            }
          }
       }
    } // end of bot message handling
@@ -3594,6 +3635,23 @@ void BotThink(bot_t *pBot) {
    // (gpGlobals->time appears to run in another thread)
    pBot->f_think_time = gpGlobals->time;
 
+   static char mkfile[256];
+   static bool mk_inited = false;
+   if(!mk_inited) {
+      UTIL_BuildFileName(mkfile, 255, (char*)"foxbot_markov.dat", NULL);
+      mk_inited = true;
+   }
+   MarkovPeriodicSave(mkfile, pBot->f_think_time);
+   FSMPeriodicSave(pBot->f_think_time);
+
+   if(pBot->f_next_ping_update <= pBot->f_think_time) {
+      if(random_long(0,50)==0)
+         pBot->fake_ping = random_long(120,150);
+      else
+         pBot->fake_ping = random_long(40,90);
+      pBot->f_next_ping_update = pBot->f_think_time + 2.0f;
+   }
+
    pBot->pEdict->v.button = 0;
    pBot->f_vertical_speed = 0.0; // not swimming up or down initially
 
@@ -3713,6 +3771,16 @@ void BotThink(bot_t *pBot) {
    BotFight(pBot);
    BotJobThink(pBot);
    BotRunJobs(pBot);
+   BotUpdateState(pBot);
+   BotUpdateMovement(pBot);
+   BotUpdateNavigation(pBot);
+   BotUpdateJob(pBot);
+   BotUpdateWeapon(pBot);
+   BotUpdateChat(pBot);
+   BotUpdateCombat(pBot);
+   BotUpdateAim(pBot);
+   BotUpdateReaction(pBot);
+   BotApplyNavState(pBot);
 
    if (spectate_debug)
       BotSpectatorDebug(pBot);
@@ -3932,6 +4000,8 @@ static void BotCombatThink(bot_t *pBot) {
    // ignore allies
    if (pBot->current_team == enemy_team || team_allies[pBot->current_team] & 1 << enemy_team)
       return;
+
+   BotApplyCombatState(pBot);
 
    const int ThreatLevel = guessThreatLevel(pBot);
 

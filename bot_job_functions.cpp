@@ -36,6 +36,7 @@
 #include "bot_job_think.h"
 #include "bot_navigate.h"
 #include "bot_weapons.h"
+#include "bot_markov.h"
 
 extern chatClass chat; // bot chat stuff
 
@@ -278,6 +279,7 @@ int JobChat(bot_t *pBot) {
       job_ptr->message[MAX_CHAT_LENGTH - 1] = '\0';
 
       UTIL_HostSay(pBot->pEdict, 0, job_ptr->message);
+      MarkovAddSentence(job_ptr->message);
       return JOB_TERMINATED; // job done
    }
 
@@ -312,6 +314,7 @@ int JobReport(bot_t *pBot) {
       job_ptr->message[MAX_CHAT_LENGTH - 1] = '\0';
 
       UTIL_HostSay(pBot->pEdict, 1, job_ptr->message);
+      MarkovAddSentence(job_ptr->message);
       return JOB_TERMINATED; // job done
    }
 

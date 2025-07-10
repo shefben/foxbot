@@ -31,6 +31,7 @@
 #include "util.h"
 
 #include "bot.h"
+#include "bot_fsm.h"
 #include "waypoint.h"
 #include "bot_func.h"
 #include "bot_job_think.h"
@@ -1220,8 +1221,19 @@ void BotShootAtEnemy(bot_t *pBot) {
 
    // is it time to shoot yet?
    if (pBot->f_shoot_time <= pBot->f_think_time) {
+      int weapon_choice = 0;
+      switch(static_cast<WeaponState>(pBot->desired_weapon_state)) {
+      case WEAPON_MELEE:
+         weapon_choice = TF_WEAPON_KNIFE;
+         break;
+      case WEAPON_GRENADE:
+         BotNadeHandler(pBot, true, GRENADE_RANDOM);
+         break;
+      default:
+         break;
+      }
       // select the best weapon to use at this distance and fire...
-      BotFireWeapon(v_enemy, pBot, 0);
+      BotFireWeapon(v_enemy, pBot, weapon_choice);
    }
 }
 
@@ -1244,10 +1256,20 @@ static Vector BotBodyTarget(const edict_t *pBotEnemy, bot_t *pBot) {
       target.y = pBotEnemy->v.origin.y;
       target.z = pBotEnemy->v.absmin.z;
    } else {
-      if (pBot->bot_skill < 2)
-         target = pBotEnemy->v.origin + pBotEnemy->v.view_ofs; // aim for the head
-      else
-         target = pBotEnemy->v.origin; // aim for the body
+      switch(static_cast<AimState>(pBot->desired_aim_state)) {
+      case AIM_HEAD:
+         target = pBotEnemy->v.origin + pBotEnemy->v.view_ofs;
+         break;
+      case AIM_FEET:
+         target.x = pBotEnemy->v.origin.x;
+         target.y = pBotEnemy->v.origin.y;
+         target.z = pBotEnemy->v.absmin.z;
+         break;
+      case AIM_BODY:
+      default:
+         target = pBotEnemy->v.origin;
+         break;
+      }
    }
 
    // time to reassess the bots inaccuracy?

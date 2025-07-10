@@ -38,5 +38,6 @@ void pfnWriteAngle(float flValue);
 void pfnWriteCoord(float flValue);
 void pfnWriteString(const char *sz);
 void pfnWriteEntity(int iValue);
+void pfnGetPlayerStats(const edict_t *pClient, int *ping, int *packet_loss);
 
 #endif // ENGINE_H

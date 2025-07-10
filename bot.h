@@ -29,6 +29,7 @@
 #define BOT_H
 
 #include "osdep.h"
+#include "bot_fsm.h"
 #include <cstring>
 
 // stuff for Win32 vs. Linux builds
@@ -286,6 +287,15 @@ typedef struct {
    float f_think_time; // set this at the start of botThink()
 
    bot_trait_struct trait; // bot personality stuff
+   BotFSM fsm;             // finite state machine for behavior
+   MoveFSM moveFsm;        // movement state machine
+   JobFSM jobFsm;          // state machine for job selection
+   WeaponFSM weaponFsm;    // state machine for weapon usage
+   ChatFSM chatFsm;        // state machine for chat behaviour
+   CombatFSM combatFsm;    // state machine for combat tactics
+   NavFSM navFsm;         // state machine for navigation style
+   AimFSM aimFsm;         // state machine for aiming preference
+   ReactionFSM reactFsm;  // state machine for emotional reaction
    float f_humour_time;    // next time the bot may feel like doing something daft
 
    // buffer for remembering jobs that the bot is interested in doing
@@ -336,6 +346,13 @@ typedef struct {
    float f_vertical_speed; // used for swimming vertically
    bool side_direction;
    int strafe_mod; // this can tell bots to stab enemies or heal teammates
+   int desired_weapon_state; // FSM controlled weapon preference
+   int desired_combat_state; // FSM controlled combat tactic
+   int desired_nav_state;   // FSM controlled navigation style
+   int desired_aim_state;   // FSM controlled aiming preference
+   int desired_reaction_state; // FSM controlled reaction state
+   int fake_ping;           // simulated network latency
+   float f_next_ping_update; // next time to refresh fake ping
 
    unsigned bot_has_flag : 1;
    float f_dontEvadeTime; // sets how long the bot should not deviate from it's route
@@ -426,6 +443,7 @@ typedef struct {
    char message[255];
    char msgstart[255];
    float f_roleSayDelay; // used to stop bots reporting stuff too often
+   float f_last_reply_time; // last time bot replied to chat
 
    // Engineer variables /////////////
    unsigned has_sentry : 1;    // set true if the bot owns a sentry gun

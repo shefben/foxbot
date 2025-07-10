@@ -31,6 +31,7 @@
 #include "bot.h"
 #include "bot_client.h"
 #include "bot_func.h"
+#include "bot_markov.h"
 #include "engine.h"
 
 #include "meta_api.h" //meta mod"
@@ -1027,6 +1028,18 @@ void pfnClPrintf(edict_t *pEdict, PRINT_TYPE ptype, const char *szMsg) {
    //	RETURN_META(MRES_HANDLED);
 }
 
+void pfnGetPlayerStats(const edict_t *pClient, int *ping, int *packet_loss) {
+    bot_t *pBot = UTIL_GetBotPointer((edict_t *)pClient);
+    if (pBot) {
+        if (ping) *ping = pBot->fake_ping;
+        if (packet_loss) *packet_loss = 0;
+        if (mr_meta)
+            RETURN_META(MRES_HANDLED);
+        return;
+    }
+    (*g_engfuncs.pfnGetPlayerStats)(pClient, ping, packet_loss);
+}
+
 void pfnServerPrint(const char *szMsg) {
    if (debug_engine) {
       fp = UTIL_OpenFoxbotLog();
@@ -1045,6 +1058,11 @@ void pfnServerPrint(const char *szMsg) {
    char buffa[255];
    char cmd[255];
    int i = 0;
+
+   // train Markov chain with chat content
+   const char *textPart = strchr(szMsg, ':');
+   if(textPart)
+      MarkovAddSentence(textPart + 1);
 
    // first compare the message to all bot names, then if bots name is
    // in message pass to bot
@@ -1169,6 +1187,7 @@ C_DLLEXPORT int GetEngineFunctions(enginefuncs_t *pengfuncsFromEngine, int *inte
    pengfuncsFromEngine->pfnWriteString = WriteString;
    pengfuncsFromEngine->pfnWriteEntity = WriteEntity;
    pengfuncsFromEngine->pfnServerPrint = pfnServerPrint;
+   pengfuncsFromEngine->pfnGetPlayerStats = pfnGetPlayerStats;
    pengfuncsFromEngine->pfnSetOrigin = pfnSetOrigin;
    pengfuncsFromEngine->pfnRemoveEntity = pfnRemoveEntity;
    pengfuncsFromEngine->pfnRegUserMsg = pfnRegUserMsg_pre;
