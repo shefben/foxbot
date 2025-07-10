@@ -707,6 +707,7 @@ void GameDLLShutdown() {
          RL_RecordRoundEnd(&bots[i].fsm, &bots[i]);
    }
    RL_SaveScores();
+   WaypointCacheSave();
    SaveFSMCounts();
    SaveBotMetrics();
    if (!mr_meta && other_gFunctionTable.pfnGameShutdown)
@@ -868,7 +869,8 @@ int DispatchSpawn(edict_t *pent) {
          // do level initialization stuff here...
 
          WaypointInit();
-         WaypointLoad(nullptr);
+         if(!WaypointCacheLoad())
+            WaypointLoad(nullptr);
          AreaDefLoad(nullptr);
 
          // my clear var for lev reload..
@@ -2451,8 +2453,10 @@ void StartFrame() { // v7 last frame timing
          savedSpots = true;
       }
    }
-   if(savedSpots)
+   if(savedSpots) {
       SaveMapSpotData();
+      WaypointCacheSave();
+   }
       // if a new map has started then (MUST BE FIRST IN StartFrame)...
       if (strcmp(STRING(gpGlobals->mapname), prevmapname) != 0) {
          first_player = nullptr;

@@ -193,6 +193,8 @@ bool WaypointTypeExists(WPT_INT32 flags, int team);
 bool WaypointLoad(edict_t *pEntity);
 
 void WaypointSave();
+bool WaypointCacheSave();
+bool WaypointCacheLoad();
 
 bool WaypointReachable(Vector v_srv, Vector v_dest, const edict_t *pEntity);
 
