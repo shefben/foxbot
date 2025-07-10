@@ -302,7 +302,23 @@ void BotSpawnInit(bot_t *pBot) {
    pBot->desired_nav_state = NAV_STRAIGHT;
    pBot->desired_aim_state = AIM_BODY;
    pBot->desired_reaction_state = REACT_CALM;
-   pBot->fake_ping = random_long(20, 80);
+
+   int activePlayers = 0;
+   for(int i = 1; i <= gpGlobals->maxClients; ++i) {
+      edict_t *pPlayer = INDEXENT(i);
+      if(pPlayer && !pPlayer->free && !(pPlayer->v.flags & FL_FAKECLIENT) && STRING(pPlayer->v.netname)[0])
+         activePlayers++;
+   }
+
+   float base = CVAR_GET_FLOAT("bot_ping_base");
+   if(base < 20)
+      base = 20;
+
+   float initial = base + random_float(-10.0f, 10.0f) + activePlayers + random_float(-5.0f, 5.0f);
+   if(initial < 20.0f)
+      initial = 20.0f;
+
+   pBot->fake_ping = static_cast<int>(initial);
    pBot->fake_ping_target = pBot->fake_ping;
    pBot->f_next_ping_update = gpGlobals->time + random_float(1.5f, 2.5f);
 
@@ -3679,14 +3695,25 @@ void BotThink(bot_t *pBot) {
    FSMPeriodicSave(pBot->f_think_time);
 
    if(pBot->f_next_ping_update <= pBot->f_think_time) {
+      int activePlayers = 0;
+      for(int i = 1; i <= gpGlobals->maxClients; ++i) {
+         edict_t *pPlayer = INDEXENT(i);
+         if(pPlayer && !pPlayer->free && !(pPlayer->v.flags & FL_FAKECLIENT) && STRING(pPlayer->v.netname)[0])
+            activePlayers++;
+      }
+
       float base = CVAR_GET_FLOAT("bot_ping_base");
       if(base < 20)
          base = 20;
-      float target = base + random_float(-10.0f, 10.0f);
+
+      float target = base + random_float(-10.0f, 10.0f) + activePlayers + random_float(-5.0f, 5.0f);
+
       if(random_long(0,50)==0)
          target += CVAR_GET_FLOAT("bot_ping_spike");
+
       if(target < 20)
          target = 20;
+
       pBot->fake_ping_target = target;
       pBot->f_next_ping_update = pBot->f_think_time + random_float(1.5f, 2.5f);
    }
