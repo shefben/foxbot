@@ -260,9 +260,10 @@ void MoveFSMInit(MoveFSM *fsm, MoveState initial) {
                 uniform = false;
 
     static const unsigned defaults[MOVE_STATE_COUNT][MOVE_STATE_COUNT] = {
-        {8, 1, 1},  // from NORMAL
-        {6, 3, 1},  // from HEAL
-        {6, 1, 3}   // from STAB
+        {8, 1, 1, 1},  // from NORMAL
+        {6, 3, 1, 0},  // from HEAL
+        {6, 1, 3, 0},  // from STAB
+        {8, 1, 1, 1}   // from WANDER
     };
 
     for(int i = 0; i < MOVE_STATE_COUNT; ++i) {
@@ -311,6 +312,8 @@ void BotUpdateMovement(bot_t *pBot) {
         Vector diff = pBot->enemy.ptr->v.origin - pBot->pEdict->v.origin;
         if(diff.Length() < 80.0f)
             next = MOVE_STAB;
+    } else if(num_waypoints < 1 && pBot->navPath.empty()) {
+        next = MOVE_WANDER;
     }
     switch(next) {
         case MOVE_HEAL:
@@ -318,6 +321,9 @@ void BotUpdateMovement(bot_t *pBot) {
             break;
         case MOVE_STAB:
             pBot->strafe_mod = STRAFE_MOD_STAB;
+            break;
+        case MOVE_WANDER:
+            pBot->strafe_mod = STRAFE_MOD_NORMAL;
             break;
         default:
             pBot->strafe_mod = STRAFE_MOD_NORMAL;

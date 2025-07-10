@@ -22,6 +22,7 @@ enum MoveState {
     MOVE_NORMAL = 0,
     MOVE_HEAL,
     MOVE_STAB,
+    MOVE_WANDER,
     MOVE_STATE_COUNT
 };
 

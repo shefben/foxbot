@@ -36,6 +36,8 @@
 #include "bot_job_think.h"
 #include "bot_navigate.h"
 #include "bot_weapons.h"
+#include <unordered_set>
+#include <cmath>
 #include <cstdio>
 #include <climits>
 #include <vector>
@@ -139,6 +141,46 @@ void AddAmbushSpot(const Vector &pos) {
    }
    Spot s{pos,1};
    g_ambushSpots.push_back(s);
+}
+
+// ---------------- Coverage Map ----------------
+struct CoverageCell {
+   int x, y;
+   bool operator==(const CoverageCell &o) const { return x == o.x && y == o.y; }
+};
+
+struct CoverageCellHash {
+   size_t operator()(const CoverageCell &c) const noexcept {
+      size_t h = static_cast<size_t>(c.x) * 73856093u;
+      h ^= static_cast<size_t>(c.y) * 19349663u;
+      return h;
+   }
+};
+
+static std::unordered_set<CoverageCell, CoverageCellHash> g_coverage;
+static constexpr float COVERAGE_STEP = 256.0f;
+
+void CoverageRecord(const Vector &pos) {
+   CoverageCell key{static_cast<int>(floor(pos.x / COVERAGE_STEP)),
+                    static_cast<int>(floor(pos.y / COVERAGE_STEP))};
+   g_coverage.insert(key);
+}
+
+bool CoverageVisited(const Vector &pos) {
+   CoverageCell key{static_cast<int>(floor(pos.x / COVERAGE_STEP)),
+                    static_cast<int>(floor(pos.y / COVERAGE_STEP))};
+   return g_coverage.find(key) != g_coverage.end();
+}
+
+Vector CoveragePickUnvisited(const Vector &origin) {
+   for(int i = 0; i < 8; ++i) {
+      float ang = random_float(-180.0f, 180.0f) * static_cast<float>(M_PI) / 180.0f;
+      Vector dir(cos(ang), sin(ang), 0);
+      Vector cand = origin + dir * COVERAGE_STEP * 2.0f;
+      if(!CoverageVisited(cand))
+         return cand;
+   }
+   return origin + Vector(random_float(-512.0f,512.0f), random_float(-512.0f,512.0f), 0);
 }
 
 bool IsDangerSpot(const Vector &pos) {
@@ -727,6 +769,7 @@ float BotChangeYaw(edict_t *pEdict, float speed) {
 // map location without using waypoints.
 // For example, this function will try to make the bot jump over or duck under obstacles.
 void BotNavigateWaypointless(bot_t *pBot) {
+   CoverageRecord(pBot->pEdict->v.origin);
    pBot->f_move_speed = pBot->f_max_speed;
    pBot->pEdict->v.button |= IN_FORWARD;
 
@@ -807,6 +850,7 @@ void BotNavigateWaypointless(bot_t *pBot) {
 // Set navByStrafe to true if you wish the bot to navigate by using axial
 // movement speeds only(i.e. without having to look at the next waypoint).
 bool BotNavigateWaypoints(bot_t *pBot, bool navByStrafe) {
+   CoverageRecord(pBot->pEdict->v.origin);
    if (num_waypoints < 1) {
       Vector goal = pBot->navGoal;
       if (goal == Vector(0, 0, 0)) {
@@ -815,8 +859,18 @@ bool BotNavigateWaypoints(bot_t *pBot, bool navByStrafe) {
          else
             goal = pBot->pEdict->v.origin;
       }
-      if (NavMeshNavigate(pBot, goal))
+      if (NavMeshNavigate(pBot, goal)) {
+         CoverageRecord(pBot->pEdict->v.origin);
          return true;
+      }
+      if (pBot->moveFsm.current == MOVE_WANDER) {
+         if (goal == Vector(0,0,0) || VectorsNearerThan(pBot->pEdict->v.origin, goal, 50.0f)) {
+            pBot->navGoal = CoveragePickUnvisited(pBot->pEdict->v.origin);
+         }
+         CoverageRecord(pBot->pEdict->v.origin);
+         BotNavigateWaypointless(pBot);
+         return true;
+      }
       return false;
    }
 
