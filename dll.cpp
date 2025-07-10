@@ -703,7 +703,7 @@ void GameDLLShutdown() {
    SaveBotMemory();
    for(int i=0;i<32;i++) {
       if(bots[i].is_used)
-         RL_RecordRoundEnd(&bots[i].fsm);
+         RL_RecordRoundEnd(&bots[i].fsm, &bots[i]);
    }
    RL_SaveScores();
    SaveFSMCounts();
@@ -2430,7 +2430,7 @@ void StartFrame() { // v7 last frame timing
 
    for(int bi=0; bi<32; ++bi) {
       if(bots[bi].is_used && bots[bi].round_end) {
-         RL_RecordRoundEnd(&bots[bi].fsm);
+         RL_RecordRoundEnd(&bots[bi].fsm, &bots[bi]);
          bots[bi].round_end = 0;
          RL_SaveScores();
       }
