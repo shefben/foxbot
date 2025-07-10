@@ -7,6 +7,8 @@ Time to rock and roll!
 Hope you're ready %s!
 Good luck, have fun!
 Watch my back and I'll watch yours!
+Ready to cap some intel?
+Medic on standby, let's move!
 
 [KILL WINNING]
 You can't stop me %s!
@@ -17,6 +19,8 @@ Who's next?
 Too easy!
 I'm on fire!
 Looks like I'm unbeatable today!
+That's another frag for the highlight reel!
+Sentry's down and so are you, %s!
 
 [KILL LOSING]
 Gotcha %s, maybe this will turn things around!
@@ -27,6 +31,8 @@ We needed that!
 Comeback starts now!
 I'll take every advantage I can get!
 They won't keep us down!
+Phew, finally got one on the board!
+That rocket jump was worth it, %s!
 
 [KILLED WINNING]
 Lucky shot %s, I'm still ahead!
@@ -37,6 +43,8 @@ Not bad, but I'm still leading!
 Good one %s, I'll get you next time!
 That was a surprise!
 You won't get many more like that!
+Okay %s, I didn't see that sticky trap.
+I guess even champions slip up.
 
 [KILLED LOSING]
 Argh %s, I'm having a rough day!
@@ -47,6 +55,8 @@ Need to step up my game.
 Ouch! That hurt!
 They're all over us!
 This match is brutal.
+Their defense is like a fortress!
+I keep respawning more than playing.
 
 [SUICIDE]
 Oops, that didn't go as planned.
@@ -56,4 +66,6 @@ Someone pretend that didn't happen.
 I swear I'm better than this.
 That was embarrassing!
 Even the best make mistakes.
+I forgot how explosive my rockets are.
+Gravity isn't on my side today.
 Let's never speak of this again.

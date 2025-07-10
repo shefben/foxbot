@@ -1,4 +1,5 @@
 #include "bot_markov.h"
+#include "bot.h"
 #include <map>
 #include <vector>
 #include <string>
@@ -75,26 +76,54 @@ bool MarkovSave(const char *file) {
 
 bool MarkovLoad(const char *file) {
     if(!file) return false;
-    FILE *fp = fopen(file, "r");
-    if(!fp) return false;
     g_chain.clear();
-    char line[512];
-    while(fgets(line, sizeof(line), fp)) {
-        char *tok = strtok(line, " \t\n");
-        if(!tok) continue;
-        std::string first = tok;
-        tok = strtok(NULL, " \t\n");
-        if(!tok) continue;
-        int count = atoi(tok);
-        for(int i=0;i<count;i++) {
+    bool loaded = false;
+    FILE *fp = fopen(file, "r");
+    if(fp) {
+        char line[512];
+        while(fgets(line, sizeof(line), fp)) {
+            char *tok = strtok(line, " \t\n");
+            if(!tok) continue;
+            std::string first = tok;
             tok = strtok(NULL, " \t\n");
-            if(!tok) break;
-            add_pair(first, tok);
-            first = tok;
+            if(!tok) continue;
+            int count = atoi(tok);
+            for(int i=0;i<count;i++) {
+                tok = strtok(NULL, " \t\n");
+                if(!tok) break;
+                add_pair(first, tok);
+                first = tok;
+            }
         }
+        fclose(fp);
+        loaded = true;
     }
-    fclose(fp);
-    return true;
+
+    char chatfile[256];
+    UTIL_BuildFileName(chatfile, 255, (char*)"foxbot_chat.txt", NULL);
+    FILE *cfp = fopen(chatfile, "r");
+    if(cfp) {
+        char buffer[512];
+        char *ptr;
+        while(UTIL_ReadFileLine(buffer, sizeof(buffer), cfp)) {
+            if(buffer[0] == '#')
+                continue;
+            size_t len = strlen(buffer);
+            if(len && buffer[len - 1] == '\n') {
+                buffer[len - 1] = '\0';
+                --len;
+            }
+            if((ptr = strstr(buffer, "%n")) != NULL)
+                *(ptr + 1) = 's';
+            if(buffer[0] == '[')
+                continue;
+            if(len > 0)
+                MarkovAddSentence(buffer);
+        }
+        fclose(cfp);
+    }
+
+    return loaded;
 }
 
 static float g_next_save_time = 0.0f;
