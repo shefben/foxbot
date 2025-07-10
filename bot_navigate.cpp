@@ -36,6 +36,8 @@
 #include "bot_job_think.h"
 #include "bot_navigate.h"
 #include "bot_weapons.h"
+#include <vector>
+#include <algorithm>
 
 extern bot_weapon_t weapon_defs[MAX_WEAPONS];
 extern edict_t *clients[32];
@@ -2251,7 +2253,7 @@ bool BotFindTeleportShortCut(bot_t *pBot) {
 // checking for visibility.
 static void BotCheckForRocketJump(bot_t *pBot) {
    // sanity checking
-   if (pBot->current_wp == -1 || pBot->bot_skill > 3 || num_waypoints < 1 |)
+   if (pBot->current_wp == -1 || pBot->bot_skill > 3 || num_waypoints < 1)
       return;
 
    const char *cvar_ntf = const_cast<char *>(CVAR_GET_STRING("neotf"));
@@ -2281,94 +2283,79 @@ static void BotCheckForRocketJump(bot_t *pBot) {
       return;
    }
 
-   int closestRJ = -1;
-   float closest2D = 500.1;
-   float zDiff;
+}
+   struct JumpCandidate {
+      int index;
+      float distance2D;
+      float zDiff;
+      int saved;
+   };
 
-   // random to simulate how high the bot thinks the jump will go this time
-   const float maxJumpHeight = random_float(340.0, 440.0);
+   std::vector<JumpCandidate> candidates;
 
-   // find the closest rocket jump point
+   const float maxJumpHeight = random_float(340.0f, 440.0f);
+
    for (int i = 0; i < MAXRJWAYPOINTS; i++) {
-      // -1 means we are at the end of the list.
       if (RJPoints[i][RJ_WP_INDEX] == -1)
          break;
 
-      // If its our team or not team specific.
       if (RJPoints[i][RJ_WP_TEAM] == -1 || RJPoints[i][RJ_WP_TEAM] == pBot->current_team) {
-         zDiff = waypoints[RJPoints[i][RJ_WP_INDEX]].origin.z - pBot->pEdict->v.origin.z;
-
-         // is this RJ waypoints height reachable with a rocket jump?
-         // on a server with 800 gravity rocket jumps can reach a height of about 440
-         if (zDiff > 54.0 && zDiff < maxJumpHeight) {
+         const float zDiff = waypoints[RJPoints[i][RJ_WP_INDEX]].origin.z - pBot->pEdict->v.origin.z;
+         if (zDiff > 54.0f && zDiff < maxJumpHeight) {
             const float distance2D = (pBot->pEdict->v.origin - waypoints[RJPoints[i][RJ_WP_INDEX]].origin).Length2D();
-
-            if (distance2D > 150.0 // don't want RJ points that are too close
-                && distance2D < closest2D) {
-               closest2D = distance2D;
-               closestRJ = RJPoints[i][RJ_WP_INDEX];
+            if (distance2D > 150.0f && distance2D < 500.1f) {
+               candidates.push_back({RJPoints[i][RJ_WP_INDEX], distance2D, zDiff, 0});
             }
          }
       }
    }
 
-   /*char msg[80];
-      sprintf(msg, "Closest Jump Index: %d Distance2D: %f ",
-                                   closestRJ, closest2D);
-      UTIL_HostSay(pBot->pEdict, 0, msg);*/
-
-   // If theres no RJ point get out.
-   if (closestRJ == -1)
+   if (candidates.empty())
       return;
 
-   // Check if its a good time to jump
-   // Resulting waypoint closer to goal than we are now
-   // (> 1000 distance savings for now)
-   const int distanceSaved = WaypointDistanceFromTo(pBot->current_wp, pBot->goto_wp, pBot->current_team) - WaypointDistanceFromTo(closestRJ, pBot->goto_wp, pBot->current_team);
+   std::sort(candidates.begin(), candidates.end(), [](const JumpCandidate &a, const JumpCandidate &b) {
+      return a.distance2D < b.distance2D;
+   });
 
-   // Don't bother if the distance it saves us is less than this.
-   if (distanceSaved < 1000)
-      return;
+   if (candidates.size() > 5)
+      candidates.resize(5);
+
+   const int currentDist = WaypointDistanceFromTo(pBot->current_wp, pBot->goto_wp, pBot->current_team);
+   for (auto &c : candidates) {
+      c.saved = currentDist - WaypointDistanceFromTo(c.index, pBot->goto_wp, pBot->current_team);
+   }
+
+   std::sort(candidates.begin(), candidates.end(), [](const JumpCandidate &a, const JumpCandidate &b) {
+      return a.saved > b.saved;
+   });
 
    TraceResult result;
+   for (const auto &c : candidates) {
+      if (c.saved < 1000)
+         continue;
 
-   // Check visibility from where the bot's head is to a point in the air above
-   // i.e. check for a low ceiling
-   zDiff = waypoints[closestRJ].origin.z - pBot->pEdict->v.origin.z;
-   UTIL_TraceLine(pBot->pEdict->v.origin + pBot->pEdict->v.view_ofs, pBot->pEdict->v.origin + Vector(0.0, 0.0, zDiff), ignore_monsters, pBot->pEdict->v.pContainingEntity, &result);
+      float zDiff = waypoints[c.index].origin.z - pBot->pEdict->v.origin.z;
+      UTIL_TraceLine(pBot->pEdict->v.origin + pBot->pEdict->v.view_ofs,
+                     pBot->pEdict->v.origin + Vector(0.0, 0.0, zDiff),
+                     ignore_monsters, pBot->pEdict->v.pContainingEntity, &result);
+      if (result.flFraction < 1.0f)
+         continue;
 
-   if (result.flFraction < 1.0)
-      return; // can't see it
+      UTIL_TraceLine(pBot->pEdict->v.origin + Vector(0.0, 0.0, zDiff),
+                     waypoints[c.index].origin,
+                     ignore_monsters, pBot->pEdict->v.pContainingEntity, &result);
+      if (result.flFraction < 1.0f)
+         continue;
 
-   // Check visibility from a point in the air above the bot to the RJ waypoint
-   // this improves the bots ability to properly detect RJ waypoints
-   UTIL_TraceLine(pBot->pEdict->v.origin + Vector(0.0, 0.0, zDiff), waypoints[closestRJ].origin, ignore_monsters, pBot->pEdict->v.pContainingEntity, &result);
-
-   if (result.flFraction < 1.0)
-      return; // can't see it
-   else {
-      // debug stuff
-      //	WaypointDrawBeam(INDEXENT(1), pBot->pEdict->v.origin,
-      //		waypoints[closestRJ].origin, 10, 2, 250, 250, 50, 200, 10);
-
-      //	UTIL_HostSay(pBot->pEdict, 0, "RJ waypoint seen");
-
-      // set up a job to handle the jump
       job_struct *newJob = InitialiseNewJob(pBot, JOB_ROCKET_JUMP, true);
       if (newJob != nullptr) {
-         newJob->waypoint = closestRJ;
+         newJob->waypoint = c.index;
          SubmitNewJob(pBot, JOB_ROCKET_JUMP, newJob);
       }
-
-      //	UTIL_BotLogPrintf("%s: RJ waypoint %d\n", pBot->name, newJob.waypoint);
-
-      /*char msg[80];
-      sprintf(msg, "CloseDist: %f Distance: %f zDiff %f ",
-                      pBot->RJClosingDistance, distance2D, zDiff);
-      UTIL_HostSay(pBot->pEdict, 0, msg);*/
+      break;
    }
-}
 
+}
 // BotCheckForConcJump - Here, we look through the list of RJ/CJ
 // waypoints in the map to find the closest one.
 // Once we find the closest we check to see if we can see it, and if it
@@ -2430,72 +2417,73 @@ static void BotCheckForConcJump(bot_t *pBot) {
       return;
    }
 
-   int closestJumpWP = -1;
-   float closest2D = random_float(400.0, 700.0); // random to cover different situations
-   float zDiff;
+}
+   struct JumpCandidate {
+      int index;
+      float distance2D;
+      float zDiff;
+      float saved;
+   };
 
-   // Find the closest RJ point from the bots predicted waypoint location
+   std::vector<JumpCandidate> candidates;
+   float zDiff;
+   float closest2D = random_float(400.0f, 700.0f);
+
    for (int i = 0; i < MAXRJWAYPOINTS; i++) {
-      // -1 means we are at the end of the list.
       if (RJPoints[i][RJ_WP_INDEX] == -1)
          break;
-
-      // If its our team or not team specific.
       if ((RJPoints[i][RJ_WP_TEAM] == -1 || RJPoints[i][RJ_WP_TEAM] == pBot->current_team) && RJPoints[i][RJ_WP_INDEX] != -1) {
          zDiff = waypoints[RJPoints[i][RJ_WP_INDEX]].origin.z - waypoints[endWP].origin.z;
-
-         // is this RJ waypoints height reachable with a concussion jump?
-         // on a server with 800 gravity concussion jumps can reach a height of about 490
-         if (zDiff > 54.0 && zDiff < 450.0) {
+         if (zDiff > 54.0f && zDiff < 450.0f) {
             const float distance2D = (waypoints[endWP].origin - waypoints[RJPoints[i][RJ_WP_INDEX]].origin).Length2D();
-
             if (distance2D < closest2D) {
-               closest2D = distance2D;
-               closestJumpWP = RJPoints[i][RJ_WP_INDEX];
+               candidates.push_back({RJPoints[i][RJ_WP_INDEX], distance2D, zDiff, 0.0f});
             }
          }
       }
    }
 
-   // Abort if theres no RJ waypoint near enough.
-   if (closestJumpWP == -1)
+   if (candidates.empty())
       return;
 
-   const float distanceSaved = WaypointDistanceFromTo(endWP, pBot->goto_wp, pBot->current_team) - WaypointDistanceFromTo(closestJumpWP, pBot->goto_wp, pBot->current_team);
+   std::sort(candidates.begin(), candidates.end(), [](const JumpCandidate &a, const JumpCandidate &b) {
+      return a.distance2D < b.distance2D;
+   });
+   if (candidates.size() > 5)
+      candidates.resize(5);
 
-   // Don't bother if the distance it saves us is less than this.
-   if (distanceSaved < 1000.0f)
-      return;
-
-   // Got the waypoint out near our reach.
-   /*if(g_bot_debug)
-                   WaypointDrawBeam(INDEXENT(1), pBot->pEdict->v.origin,
-                                   waypoints[endWP].origin, 30, 0, 125, 125, 125, 250, 5);*/
+   for (auto &c : candidates) {
+      c.saved = static_cast<float>(WaypointDistanceFromTo(endWP, pBot->goto_wp, pBot->current_team) -
+                                   WaypointDistanceFromTo(c.index, pBot->goto_wp, pBot->current_team));
+   }
+   std::sort(candidates.begin(), candidates.end(), [](const JumpCandidate &a, const JumpCandidate &b) {
+      return a.saved > b.saved;
+   });
 
    TraceResult result;
+   for (const auto &c : candidates) {
+      if (c.saved < 1000.0f)
+         continue;
 
-   // Check visibility from where the bot's head will be to a point in the air above
-   // i.e. check for a low ceiling
-   zDiff = waypoints[closestJumpWP].origin.z - waypoints[endWP].origin.z;
-   UTIL_TraceLine(waypoints[endWP].origin + pBot->pEdict->v.view_ofs, waypoints[endWP].origin + Vector(0.0, 0.0, zDiff), ignore_monsters, pBot->pEdict->v.pContainingEntity, &result);
+      zDiff = waypoints[c.index].origin.z - waypoints[endWP].origin.z;
+      UTIL_TraceLine(waypoints[endWP].origin + pBot->pEdict->v.view_ofs,
+                     waypoints[endWP].origin + Vector(0.0, 0.0, zDiff),
+                     ignore_monsters, pBot->pEdict->v.pContainingEntity, &result);
+      if (result.flFraction < 1.0f)
+         continue;
 
-   if (result.flFraction < 1.0)
-      return; // can't see it
+      UTIL_TraceLine(waypoints[endWP].origin + Vector(0.0, 0.0, zDiff),
+                     waypoints[c.index].origin,
+                     ignore_monsters, pBot->pEdict->v.pContainingEntity, &result);
+      if (result.flFraction < 1.0f)
+         continue;
 
-   // Check visibility from a point in the air above the bot to the RJ waypoint
-   // this improves the bots ability to properly detect RJ waypoints
-   UTIL_TraceLine(waypoints[endWP].origin + Vector(0.0, 0.0, zDiff), waypoints[closestJumpWP].origin, ignore_monsters, pBot->pEdict->v.pContainingEntity, &result);
-
-   if (result.flFraction < 1.0)
-      return; // can't see it
-   else       // success - it's time to set up a concussion jump job
-   {
       job_struct *newJob = InitialiseNewJob(pBot, JOB_CONCUSSION_JUMP, true);
       if (newJob != nullptr) {
          newJob->waypoint = endWP;
-         newJob->waypointTwo = closestJumpWP;
-
+         newJob->waypointTwo = c.index;
          SubmitNewJob(pBot, JOB_CONCUSSION_JUMP, newJob);
       }
+      break;
    }
 }
