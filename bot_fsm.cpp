@@ -687,27 +687,39 @@ void BotUpdateNavigation(bot_t *pBot) {
         }
     }
 
-    if(pBot->desired_reaction_state == REACT_PANIC)
-        next = NAV_STRAFE;
+    if (pBot->desired_reaction_state == REACT_PANIC) {
+       if (random_float(0.0f, 1.0f) < 0.5f)
+          next = NAV_JUMP;
+       else
+          next = NAV_STRAFE;
+    }
     pBot->desired_nav_state = static_cast<int>(next);
 }
 
 void BotApplyNavState(bot_t *pBot) {
-    if(!pBot) return;
-    switch(static_cast<NavState>(pBot->desired_nav_state)) {
-        case NAV_STRAFE:
-            pBot->f_waypoint_drift = random_long(0,1) ? 10.0f : -10.0f;
-            pBot->f_side_speed = (random_long(0,1) ? pBot->f_max_speed : -pBot->f_max_speed);
-            break;
-        case NAV_JUMP:
+   if (!pBot)
+      return;
+   switch (static_cast<NavState>(pBot->desired_nav_state)) {
+   case NAV_STRAFE:
+      if (pBot->desired_reaction_state == REACT_PANIC) {
+         pBot->f_waypoint_drift = random_float(-15.0f, 15.0f);
+         pBot->f_side_speed = (random_long(0, 1) ? pBot->f_max_speed : -pBot->f_max_speed);
+         if (random_float(0.0f, 1.0f) < 0.3f)
             pBot->pEdict->v.button |= IN_JUMP;
-            pBot->f_waypoint_drift = 0.0f;
-            break;
-        case NAV_STRAIGHT:
-        default:
-            pBot->f_waypoint_drift = 0.0f;
-            break;
-    }
+      } else {
+         pBot->f_waypoint_drift = random_long(0, 1) ? 10.0f : -10.0f;
+         pBot->f_side_speed = (random_long(0, 1) ? pBot->f_max_speed : -pBot->f_max_speed);
+      }
+      break;
+   case NAV_JUMP:
+      pBot->pEdict->v.button |= IN_JUMP;
+      pBot->f_waypoint_drift = 0.0f;
+      break;
+   case NAV_STRAIGHT:
+   default:
+      pBot->f_waypoint_drift = 0.0f;
+      break;
+   }
 }
 
 static void ReactionFSMUpdateCounts(ReactionFSM *fsm, int from, int to) {
