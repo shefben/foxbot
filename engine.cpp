@@ -35,6 +35,7 @@
 #include "engine.h"
 
 #include "meta_api.h" //meta mod"
+#include <algorithm>
 
 extern bool mr_meta;
 
@@ -1059,10 +1060,59 @@ void pfnServerPrint(const char *szMsg) {
    char cmd[255];
    int i = 0;
 
-   // train Markov chain with chat content
-   const char *textPart = strchr(szMsg, ':');
-   if(textPart)
-      MarkovAddSentence(textPart + 1);
+   // extract chat context
+   bool isTeam = false;
+   const char *msgPtr = szMsg;
+   if (strncasecmp(szMsg, "(TEAM)", 6) == 0) {
+      isTeam = true;
+      if(szMsg[6]==' ')
+         msgPtr = szMsg + 7;
+      else
+         msgPtr = szMsg + 6;
+   }
+   char fromName[64] = "";
+   const char *colon = strchr(msgPtr, ':');
+   const char *textPart = nullptr;
+   if (colon) {
+      size_t len = std::min<size_t>(colon - msgPtr, sizeof(fromName) - 1);
+      strncpy(fromName, msgPtr, len);
+      fromName[len] = '\0';
+      textPart = colon + 1;
+      if (*textPart == ' ')
+         ++textPart;
+   }
+   const char *areaName = "";
+   if (fromName[0]) {
+      for (int t = 0; t < 32; ++t) {
+         if (clients[t] && strcmp(STRING(clients[t]->v.netname), fromName) == 0) {
+            const int area = AreaInsideClosest(clients[t]);
+            if (area != -1) {
+               switch (UTIL_GetTeam(clients[t])) {
+               case 0:
+                  areaName = areas[area].namea;
+                  break;
+               case 1:
+                  areaName = areas[area].nameb;
+                  break;
+               case 2:
+                  areaName = areas[area].namec;
+                  break;
+               case 3:
+                  areaName = areas[area].named;
+                  break;
+               default:
+                  break;
+               }
+            }
+            break;
+         }
+      }
+   }
+   char trainLine[512];
+   if (textPart) {
+      snprintf(trainLine, sizeof(trainLine), "%s %s %s", isTeam ? "TEAM" : "ALL", areaName, textPart);
+      MarkovAddSentence(trainLine);
+   }
 
    // first compare the message to all bot names, then if bots name is
    // in message pass to bot
@@ -1122,6 +1172,8 @@ void pfnServerPrint(const char *szMsg) {
 
             strncpy(bots[i].message, szMsg, 253);
             strncpy(bots[i].msgstart, msgstart, 253);
+            bots[i].msg_team = isTeam;
+            strncpy(bots[i].msgLocation, areaName, 63);
             bots[i].newmsg = true; // tell the bot it has mail
          }
       }
