@@ -30,6 +30,13 @@
 
 #include "bot_fsm.h"
 
+enum TeamSignalType { SIG_NONE = 0, SIG_ATTACK };
+
+void BotRecordNearbyBots(bot_t *pBot);
+edict_t *BotGetSharedEnemy(const bot_t *pBot);
+void BotBroadcastSignal(int team, TeamSignalType signal, float duration);
+TeamSignalType BotCurrentSignal(int team);
+
 // prototypes of bot functions...
 
 void BotSpawnInit(bot_t *pBot);
