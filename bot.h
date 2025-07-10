@@ -501,6 +501,8 @@ typedef struct {
    bool lockClass;              // set true if you don't want the bots changing class when they feel like it
    short deathsTillClassChange; // remaining deaths till the bot should pick a new class
    int scoreAtSpawn;            // what their score was when they last spawned
+   int killStreak;              // consecutive kills since last death
+   int deathStreak;             // consecutive deaths since last kill
 
    // weapon related variables /////////////////
    float f_shoot_time;         // when to next pull the trigger

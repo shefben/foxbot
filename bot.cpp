@@ -345,6 +345,8 @@ void BotSpawnInit(bot_t *pBot) {
    pBot->bot_has_flag = false;
 
    pBot->scoreAtSpawn = static_cast<int>(pBot->pEdict->v.frags);
+   pBot->killStreak = 0;
+   pBot->deathStreak = 0;
 
    pBot->b_use_health_station = false;
    pBot->f_use_health_time = 0.0;
