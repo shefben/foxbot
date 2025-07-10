@@ -10,6 +10,7 @@
 #include <deque>
 #include <fstream>
 #include <cstdio>
+#include <enginecallback.h>
 
 static std::unordered_map<std::string, std::vector<std::string>> g_chain;
 static size_t g_order = 3; // default to trigram
@@ -100,7 +101,10 @@ void MarkovGenerate(char *out, size_t maxLen) {
 bool MarkovSave(const char *file) {
     if(!file) return false;
     std::ofstream out(file);
-    if(!out) return false;
+    if(!out) {
+        UTIL_BotLogPrintf("MarkovSave: failed to open %s\n", file);
+        return false;
+    }
     out << "N " << g_order << '\n';
     for(const auto &it : g_chain) {
         out << it.first << ' ' << it.second.size();
@@ -114,7 +118,10 @@ bool MarkovSave(const char *file) {
 bool MarkovLoad(const char *file) {
     if(!file) return false;
     std::ifstream in(file);
-    if(!in) return false;
+    if(!in) {
+        UTIL_BotLogPrintf("MarkovLoad: failed to open %s\n", file);
+        return false;
+    }
     g_chain.clear();
 
     std::string line;
@@ -198,9 +205,16 @@ static float g_next_save_time = 0.0f;
 
 void MarkovPeriodicSave(const char *file, float currentTime) {
     if(currentTime >= g_next_save_time) {
-        if(file)
-            MarkovSave(file);
-        UTIL_BotLogPrintf("MarkovPeriodicSave: saved %s at %f\n", file ? file : "(null)", currentTime);
-        g_next_save_time = currentTime + 120.0f;
+        if(file) {
+            if(!MarkovSave(file)) {
+                UTIL_BotLogPrintf("MarkovPeriodicSave: failed to save %s\n", file);
+            } else {
+                UTIL_BotLogPrintf("MarkovPeriodicSave: saved %s at %f\n", file, currentTime);
+            }
+        }
+        float interval = CVAR_GET_FLOAT("bot_save_interval");
+        if(interval <= 0.0f)
+            interval = 120.0f;
+        g_next_save_time = currentTime + interval;
     }
 }

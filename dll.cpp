@@ -64,6 +64,7 @@ cvar_t enable_foxbot = {"enable_foxbot", "1", FCVAR_SERVER | FCVAR_UNLOGGED, 0, 
 cvar_t sv_bot = {"bot", "", 0, 0, nullptr};
 cvar_t bot_ping_base = {"bot_ping_base", "60", FCVAR_SERVER | FCVAR_UNLOGGED, 0, nullptr};
 cvar_t bot_ping_spike = {"bot_ping_spike", "120", FCVAR_SERVER | FCVAR_UNLOGGED, 0, nullptr};
+cvar_t bot_save_interval = {"bot_save_interval", "120", FCVAR_SERVER | FCVAR_UNLOGGED, 0, nullptr};
 
 extern GETENTITYAPI other_GetEntityAPI;
 extern GETNEWDLLFUNCTIONS other_GetNewDLLFunctions;
@@ -666,6 +667,7 @@ void GameDLLInit() {
    CVAR_REGISTER(&enable_foxbot);
    CVAR_REGISTER(&bot_ping_base);
    CVAR_REGISTER(&bot_ping_spike);
+   CVAR_REGISTER(&bot_save_interval);
 
    for (int i = 0; i < 32; i++)
       clients[i] = nullptr;
