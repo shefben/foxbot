@@ -24,7 +24,7 @@ static unsigned gReactionCounts[REACT_STATE_COUNT][REACT_STATE_COUNT];
 static const unsigned FSM_FILE_VERSION = 1;
 static const unsigned METRICS_FILE_VERSION = 1;
 
-TeamSignalType g_teamSignals[MAX_TEAMS];
+TeamSignalInfo g_teamSignals[MAX_TEAMS];
 float g_teamSignalExpire[MAX_TEAMS];
 
 float gBotAccuracy[32];
@@ -629,7 +629,8 @@ void BotUpdateChat(bot_t *pBot) {
 void BotUpdateCombat(bot_t *pBot) {
     if(!pBot) return;
     BotRecordNearbyBots(pBot);
-    TeamSignalType sig = BotCurrentSignal(pBot->current_team);
+    TeamSignalInfo sigInfo = BotCurrentSignal(pBot->current_team);
+    TeamSignalType sig = sigInfo.type;
 
     CombatState next = CombatFSMNextState(&pBot->combatFsm);
 
@@ -676,8 +677,11 @@ void BotUpdateCombat(bot_t *pBot) {
     if(sig == SIG_ATTACK)
         next = COMBAT_ATTACK;
 
-    if(next == COMBAT_ATTACK && pBot->enemy.ptr)
-        BotBroadcastSignal(pBot->current_team, SIG_ATTACK, 0.5f);
+    if(next == COMBAT_ATTACK && pBot->enemy.ptr) {
+        BotBroadcastSignal(pBot->current_team, SIG_ATTACK, 0.5f, pBot->enemy.ptr->v.origin);
+    } else if(pBot->enemy.ptr) {
+        BotBroadcastSignal(pBot->current_team, SIG_ENEMY_SPOTTED, 0.5f, pBot->enemy.ptr->v.origin);
+    }
 
     pBot->desired_combat_state = static_cast<int>(next);
 }
@@ -706,6 +710,7 @@ void BotApplyCombatState(bot_t *pBot) {
                 newJob->player = pBot->enemy.ptr;
                 newJob->origin = pBot->enemy.ptr->v.origin;
                 SubmitNewJob(pBot, JOB_PURSUE_ENEMY, newJob);
+                BotBroadcastSignal(pBot->current_team, SIG_ATTACK_PLAN, 1.0f, pBot->enemy.ptr->v.origin);
             }
             break;
         }
@@ -722,6 +727,7 @@ void BotApplyCombatState(bot_t *pBot) {
                 newJob->player = pBot->enemy.ptr;
                 newJob->origin = pBot->enemy.ptr->v.origin;
                 SubmitNewJob(pBot, JOB_PURSUE_ENEMY, newJob);
+                BotBroadcastSignal(pBot->current_team, SIG_ATTACK_PLAN, 1.0f, pBot->enemy.ptr->v.origin);
             }
             break;
         }
@@ -780,7 +786,8 @@ NavState NavFSMNextState(NavFSM *fsm) {
 void BotUpdateNavigation(bot_t *pBot) {
     if(!pBot) return;
     BotRecordNearbyBots(pBot);
-    TeamSignalType sig = BotCurrentSignal(pBot->current_team);
+    TeamSignalInfo sigInfo = BotCurrentSignal(pBot->current_team);
+    TeamSignalType sig = sigInfo.type;
     NavState next = NavFSMNextState(&pBot->navFsm);
 
     if(pBot->enemy.ptr) {
@@ -799,6 +806,16 @@ void BotUpdateNavigation(bot_t *pBot) {
 
     if(sig == SIG_ATTACK && pBot->enemy.ptr)
         next = NAV_STRAFE;
+    else if(sigInfo.type == SIG_ATTACK_PLAN) {
+        int wp = WaypointFindNearest_S(sigInfo.location, nullptr, 600.0f, pBot->current_team, W_FL_DELETED);
+        if(wp != -1)
+            pBot->goto_wp = wp;
+    }
+    else if(sigInfo.type == SIG_ENEMY_SPOTTED && !pBot->enemy.ptr) {
+        int wp = WaypointFindNearest_S(sigInfo.location, nullptr, 600.0f, pBot->current_team, W_FL_DELETED);
+        if(wp != -1)
+            pBot->goto_wp = wp;
+    }
     else if(pBot->desired_reaction_state == REACT_PANIC)
         next = (random_float(0.0f, 1.0f) < 0.5f) ? NAV_STRAFE : NAV_JUMP;
     pBot->desired_nav_state = static_cast<int>(next);
@@ -957,15 +974,16 @@ edict_t *BotGetSharedEnemy(const bot_t *pBot) {
     return nullptr;
 }
 
-void BotBroadcastSignal(int team, TeamSignalType signal, float duration) {
+void BotBroadcastSignal(int team, TeamSignalType signal, float duration, const Vector &location) {
     if(team < 0 || team >= MAX_TEAMS) return;
-    g_teamSignals[team] = signal;
+    g_teamSignals[team].type = signal;
+    g_teamSignals[team].location = location;
     g_teamSignalExpire[team] = gpGlobals->time + duration;
 }
 
-TeamSignalType BotCurrentSignal(int team) {
-    if(team < 0 || team >= MAX_TEAMS) return SIG_NONE;
+TeamSignalInfo BotCurrentSignal(int team) {
+    if(team < 0 || team >= MAX_TEAMS) return {SIG_NONE, Vector(0,0,0)};
     if(gpGlobals->time > g_teamSignalExpire[team])
-        g_teamSignals[team] = SIG_NONE;
+        g_teamSignals[team].type = SIG_NONE;
     return g_teamSignals[team];
 }
