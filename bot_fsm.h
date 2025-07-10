@@ -5,9 +5,9 @@
 
 enum BotState {
     BOT_STATE_IDLE = 0,
-    BOT_STATE_ROAM,
-    BOT_STATE_ATTACK,
-    BOT_STATE_DEFEND,
+    BOT_STATE_ROAM,    // currently unused
+    BOT_STATE_ATTACK,  // currently unused
+    BOT_STATE_DEFEND,  // currently unused
     BOT_STATE_COUNT
 };
 
@@ -24,6 +24,11 @@ enum MoveState {
     MOVE_STAB,
     MOVE_STATE_COUNT
 };
+
+// Typical transitions:
+//  - MOVE_NORMAL -> MOVE_HEAL when health is low
+//  - MOVE_NORMAL -> MOVE_STAB when closing on an enemy
+//  - Other states usually return to MOVE_NORMAL once finished
 
 struct MoveFSM {
     MoveState current;
@@ -47,6 +52,11 @@ enum WeaponState {
     WEAPON_STATE_COUNT
 };
 
+// Typical transitions:
+//  - Players tend to stay with WEAPON_PRIMARY
+//  - Temporary switches to SECONDARY or MELEE happen in close combat
+//  - GRENADE usage is rare and usually followed by returning to PRIMARY
+
 struct WeaponFSM {
     WeaponState current;
     WeaponState previous;
@@ -62,6 +72,11 @@ enum ChatState {
     CHAT_STATE_COUNT
 };
 
+// Expected behaviour:
+//  - CHAT_IDLE is the default
+//  - GREET is triggered at round start or when seeing allies
+//  - KILL and DEATH are short lived states after combat events
+
 struct ChatFSM {
     ChatState current;
     ChatState previous;
@@ -75,6 +90,8 @@ enum AimState {
     AIM_FEET,
     AIM_STATE_COUNT
 };
+
+// Bots favour AIM_BODY but may switch to HEAD for weak enemies
 
 struct AimFSM {
     AimState current;
@@ -91,6 +108,9 @@ enum CombatState {
     COMBAT_STATE_COUNT
 };
 
+// Approach and attack are common transitions when an enemy is visible
+// Bots retreat when low on health or outnumbered
+
 struct CombatFSM {
     CombatState current;
     CombatState previous;
@@ -105,6 +125,10 @@ enum ReactionState {
     REACT_STATE_COUNT
 };
 
+// Transitions depend on nearby allies and health:
+//  - ALERT when an enemy is spotted
+//  - PANIC when health is critical
+
 struct ReactionFSM {
     ReactionState current;
     ReactionState previous;
@@ -118,6 +142,9 @@ enum NavState {
     NAV_JUMP,
     NAV_STATE_COUNT
 };
+
+// Bots mostly travel straight, strafing or jumping when obstacles or
+// threats require quick movement
 
 struct NavFSM {
     NavState current;
