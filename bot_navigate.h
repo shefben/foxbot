@@ -87,4 +87,10 @@ int BotDrowningWaypointSearch(const bot_t *pBot);
 
 bool BotFindTeleportShortCut(bot_t *pBot);
 
+void AddDangerSpot(const Vector &pos);
+void AddAmbushSpot(const Vector &pos);
+bool IsDangerSpot(const Vector &pos);
+void LoadMapSpotData();
+void SaveMapSpotData();
+
 #endif // BOT_NAVIGATE_H

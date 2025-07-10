@@ -243,6 +243,7 @@ void BotUpdateSkillInaccuracy() {
 
 void BotMetricOnKill(bot_t *bot) {
    if(!bot) return;
+   AddAmbushSpot(bot->pEdict->v.origin);
    bot->accuracy += 0.05f;
    if(bot->accuracy > 1.0f) bot->accuracy = 1.0f;
    bot->reaction_speed += 0.03f;
@@ -258,6 +259,7 @@ void BotMetricOnKill(bot_t *bot) {
 
 void BotMetricOnDeath(bot_t *bot) {
    if(!bot) return;
+   AddDangerSpot(bot->pEdict->v.origin);
    bot->accuracy -= 0.05f;
    if(bot->accuracy < 0.0f) bot->accuracy = 0.0f;
    bot->reaction_speed -= 0.03f;
