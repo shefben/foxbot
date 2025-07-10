@@ -353,6 +353,7 @@ typedef struct {
    int desired_reaction_state; // FSM controlled reaction state
    int fake_ping;           // simulated network latency
    float f_next_ping_update; // next time to refresh fake ping
+   float fake_ping_target;  // target latency for smoothing
 
    unsigned bot_has_flag : 1;
    float f_dontEvadeTime; // sets how long the bot should not deviate from it's route
