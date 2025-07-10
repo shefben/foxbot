@@ -819,6 +819,13 @@ static edict_t *BotFindEnemy(bot_t *pBot) {
 
             // see if the bot can see the player...
             if (FInViewCone(vecEnd, pEdict) && FVisible(vecEnd, pEdict)) {
+               const int oppIndex = ENTINDEX(pPlayer) - 1;
+               if (oppIndex >= 0 && oppIndex < MAX_OPPONENTS) {
+                  OpponentRememberWeapon(pBot->opponents[oppIndex], pPlayer->v.weaponmodel);
+                  const int wp = WaypointFindNearest_E(pPlayer, REACHABLE_RANGE, UTIL_GetTeam(pPlayer));
+                  if (wp != -1)
+                     OpponentRememberWaypoint(pBot->opponents[oppIndex], wp);
+               }
                const float distance = (pPlayer->v.origin - pEdict->v.origin).Length();
 
                // count the number of visible enemies nearby

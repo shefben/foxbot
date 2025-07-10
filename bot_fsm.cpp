@@ -539,6 +539,13 @@ void BotUpdateCombat(bot_t *pBot) {
         Vector diff = pBot->enemy.ptr->v.origin - pBot->pEdict->v.origin;
         const float dist = diff.Length();
 
+        const int oppIdx = ENTINDEX(pBot->enemy.ptr) - 1;
+        if(oppIdx >= 0 && oppIdx < MAX_OPPONENTS) {
+            int fav = OpponentFavoriteWeapon(pBot->opponents[oppIdx]);
+            if(fav == TF_WEAPON_SNIPERRIFLE && dist > 300.0f)
+                next = COMBAT_APPROACH;
+        }
+
         if(pBot->pEdict->v.health < 25 || pBot->desired_reaction_state == REACT_PANIC)
             next = COMBAT_RETREAT;
         else if(pBot->desired_reaction_state == REACT_ALERT)
@@ -643,6 +650,15 @@ NavState NavFSMNextState(NavFSM *fsm) {
 void BotUpdateNavigation(bot_t *pBot) {
     if(!pBot) return;
     NavState next = NavFSMNextState(&pBot->navFsm);
+
+    if(pBot->enemy.ptr) {
+        const int oppIdx = ENTINDEX(pBot->enemy.ptr) - 1;
+        if(oppIdx >= 0 && oppIdx < MAX_OPPONENTS) {
+            int favWp = OpponentFavoredWaypoint(pBot->opponents[oppIdx]);
+            if(favWp == pBot->current_wp)
+                next = NAV_STRAFE;
+        }
+    }
 
     if(pBot->desired_reaction_state == REACT_PANIC)
         next = NAV_STRAFE;
