@@ -127,6 +127,7 @@ static void WaypointRouteInit();
 static bool WaypointLoadVersion4(FILE *bfp, int number_of_waypoints);
 static bool WaypointDeleteAimArtifact(const edict_t *pEntity);
 static int WaypointAddInternal(const Vector &origin);
+static void WaypointAddItemWaypoints();
 static bool WaypointGenerateFromSpawn();
 
 void WaypointDebug() {
@@ -240,6 +241,54 @@ static int WaypointAddInternal(const Vector &origin) {
    return index;
 }
 
+// search map entities for pickups and add them as temporary waypoints
+static void WaypointAddItemWaypoints() {
+   int added = 0;
+   for (int i = 1; i < gpGlobals->maxEntities && num_waypoints < MAX_WAYPOINTS; ++i) {
+      edict_t *ent = INDEXENT(i);
+      if (FNullEnt(ent))
+         continue;
+
+      const char *cls = STRING(ent->v.classname);
+      if (cls == nullptr)
+         continue;
+
+      bool isHealth = strcmp(cls, "item_healthkit") == 0 || strcmp(cls, "item_health") == 0 || strcmp(cls, "item_battery") == 0;
+      bool isAmmo = strncmp(cls, "ammo_", 5) == 0 || strncmp(cls, "tf_ammo", 7) == 0 || strcmp(cls, "tf_ammobox") == 0 || strcmp(cls, "item_shells") == 0 || strcmp(cls, "item_rockets") == 0 || strcmp(cls, "item_cells") == 0;
+
+      if (!isHealth && !isAmmo)
+         continue;
+
+      if (ent->v.effects & EF_NODRAW)
+         continue;
+
+      if (WaypointFindNearest_V(ent->v.origin, 40.0f, -1) != -1)
+         continue;
+
+      const int idx = WaypointAddInternal(ent->v.origin);
+      if (idx == -1)
+         return;
+
+      if (isHealth)
+         waypoints[idx].flags |= W_FL_HEALTH;
+      else if (isAmmo)
+         waypoints[idx].flags |= W_FL_AMMO;
+
+      const int near = WaypointFindNearest_V(ent->v.origin, REACHABLE_RANGE, -1);
+      if (near != -1) {
+         if (WaypointAddPath(idx, near))
+            g_waypoint_paths = true;
+         if (WaypointAddPath(near, idx))
+            g_waypoint_paths = true;
+      }
+
+      added++;
+   }
+
+   if (added > 0)
+      ALERT(at_console, "Added %d item goal waypoints.\n", added);
+}
+
 // generate waypoints using BFS from first spawn point
 static bool WaypointGenerateFromSpawn() {
    edict_t *spawn = FIND_ENTITY_BY_CLASSNAME(nullptr, "info_player_deathmatch");
@@ -313,6 +362,8 @@ static bool WaypointGenerateFromSpawn() {
          q.push({next, ni});
       }
    }
+
+   WaypointAddItemWaypoints();
 
    ALERT(at_console, "Generated %d temporary waypoints.\n", num_waypoints);
    WaypointRouteInit();
