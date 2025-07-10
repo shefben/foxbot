@@ -312,6 +312,7 @@ void BotSpawnInit(bot_t *pBot) {
 
    pBot->strafe_mod = STRAFE_MOD_NORMAL;
    pBot->f_last_reply_time = 0.0f;
+   pBot->f_markov_check_time = 0.0f;
    pBot->msg_team = false;
    pBot->msgLocation[0] = '\0';
 
@@ -939,6 +940,7 @@ void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char 
         pBot->msg_team = false;
         pBot->msgLocation[0] = '\0';
         pBot->f_last_reply_time = 0.0f;
+        pBot->f_markov_check_time = 0.0f;
       }
 
       if (mod_id == TFC_DLL)
@@ -3660,7 +3662,10 @@ void BotThink(bot_t *pBot) {
       UTIL_BuildFileName(mkfile, 255, (char*)"foxbot_markov.dat", NULL);
       mk_inited = true;
    }
-   MarkovPeriodicSave(mkfile, pBot->f_think_time);
+   if(pBot->f_markov_check_time != pBot->f_think_time) {
+      MarkovPeriodicSave(mkfile, pBot->f_think_time);
+      pBot->f_markov_check_time = pBot->f_think_time;
+   }
    FSMPeriodicSave(pBot->f_think_time);
 
    if(pBot->f_next_ping_update <= pBot->f_think_time) {

@@ -200,6 +200,7 @@ void MarkovPeriodicSave(const char *file, float currentTime) {
     if(currentTime >= g_next_save_time) {
         if(file)
             MarkovSave(file);
+        UTIL_BotLogPrintf("MarkovPeriodicSave: saved %s at %f\n", file ? file : "(null)", currentTime);
         g_next_save_time = currentTime + 120.0f;
     }
 }
