@@ -365,6 +365,8 @@ void BotSpawnInit(bot_t *pBot) {
    pBot->scoreAtSpawn = static_cast<int>(pBot->pEdict->v.frags);
    pBot->killStreak = 0;
    pBot->deathStreak = 0;
+   pBot->frustration = 0.0f;
+   pBot->excitement = 0.0f;
 
    pBot->b_use_health_station = false;
    pBot->f_use_health_time = 0.0;
@@ -941,6 +943,8 @@ void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char 
       }
 
       pBot->f_humour_time = pBot->f_think_time + random_float(60.0, 180.0);
+      pBot->frustration = 0.0f;
+      pBot->excitement = 0.0f;
 
       pBot->sideRouteTolerance = 400; // not willing to branch far initially
 
