@@ -1000,6 +1000,7 @@ void BotCreate(edict_t *pPlayer, const char *arg1, const char *arg2, const char 
       pBot->dispenser_edict = nullptr;
       pBot->f_dispenserDetTime = 0.0;
       pBot->killer_edict = nullptr;
+      pBot->killer_name[0] = '\0';
       pBot->killed_edict = nullptr;
       pBot->lastEnemySentryGun = nullptr;
       pBot->mission = ROLE_ATTACKER;
@@ -3106,8 +3107,11 @@ static void BotComms(bot_t *pBot) {
          pBot->newmsg = true;
       }
       pBot->killer_edict = nullptr;
-   } else
+      pBot->killer_name[0] = '\0';
+   } else {
       pBot->killer_edict = nullptr;
+      pBot->killer_name[0] = '\0';
+   }
 
    // haha I killed you messages
    if (pBot->killed_edict != nullptr && random_long(1, 1000) < static_cast<long>(bot_chat)) {

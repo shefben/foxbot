@@ -640,11 +640,12 @@ void BotClient_Valve_DeathMsg(void *p, int bot_index) {
       // is this message about a bot being killed?
       if (index != -1) {
          if (killer_index == 0 || killer_index == victim_index) {
-            // bot killed by world (worldspawn) or bot killed self...
             bots[index].killer_edict = nullptr;
+            bots[index].killer_name[0] = '\0';
          } else {
-            // store edict of player that killed this bot...
             bots[index].killer_edict = INDEXENT(killer_index);
+            strncpy(bots[index].killer_name, STRING(INDEXENT(killer_index)->v.netname), BOT_NAME_LEN);
+            bots[index].killer_name[BOT_NAME_LEN] = '\0';
             killer_edict = INDEXENT(killer_index);
             indexb = UTIL_GetBotIndex(killer_edict);
             if (indexb != -1 && victim_edict != nullptr) {

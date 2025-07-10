@@ -429,6 +429,17 @@ int UTIL_GetBotIndex(edict_t *pEdict) {
    return -1;
 }
 
+edict_t *UTIL_PlayerByName(const char *name) {
+   if (!name || !*name)
+      return nullptr;
+   for (int i = 1; i <= gpGlobals->maxClients; ++i) {
+      edict_t *p = INDEXENT(i);
+      if (p && !p->free && STRING(p->v.netname)[0] && strcasecmp(STRING(p->v.netname), name) == 0)
+         return p;
+   }
+   return nullptr;
+}
+
 bot_t *UTIL_GetBotPointer(edict_t *pEdict) {
    for (int index = 0; index < 32; index++) {
       if (bots[index].pEdict == pEdict)
