@@ -60,6 +60,10 @@ bool BotFireWeapon(const Vector &v_enemy, bot_t *pBot, int weapon_choice);
 
 void BotShootAtEnemy(bot_t *pBot);
 
+// planner helpers
+void PlannerInit(bot_t *pBot);
+void PlannerThink(bot_t *pBot);
+
 // finite state machine helpers
 void BotFSMInit(BotFSM *fsm, BotState initial);
 BotState BotFSMNextState(BotFSM *fsm);
