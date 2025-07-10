@@ -382,6 +382,8 @@ typedef struct {
    AimFSM aimFsm;         // state machine for aiming preference
    ReactionFSM reactFsm;  // state machine for emotional reaction
    float f_humour_time;    // next time the bot may feel like doing something daft
+   float frustration;      // level of frustration (0.0 - 1.0)
+   float excitement;       // level of excitement (0.0 - 1.0)
 
    // buffer for remembering jobs that the bot is interested in doing
    int jobType[JOB_BUFFER_MAX];

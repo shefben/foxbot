@@ -3627,6 +3627,21 @@ void CheckStreakComments(bot_t *pBot) {
 
    job_struct *newJob = nullptr;
 
+   if(pBot->frustration > 0.7f && BufferedJobIndex(pBot, JOB_CHAT) == -1) {
+      newJob = InitialiseNewJob(pBot, JOB_CHAT, true);
+      if(newJob) {
+         snprintf(newJob->message, MAX_CHAT_LENGTH, "I'm getting frustrated!");
+         SubmitNewJob(pBot, JOB_CHAT, newJob);
+      }
+      pBot->desired_combat_state = COMBAT_ATTACK;
+   } else if(pBot->excitement > 0.7f && BufferedJobIndex(pBot, JOB_CHAT) == -1) {
+      newJob = InitialiseNewJob(pBot, JOB_CHAT, true);
+      if(newJob) {
+         snprintf(newJob->message, MAX_CHAT_LENGTH, "Woohoo!");
+         SubmitNewJob(pBot, JOB_CHAT, newJob);
+      }
+   }
+
    if (pBot->killStreak >= 3 && pBot->killStreak % 3 == 0) {
       newJob = InitialiseNewJob(pBot, JOB_CHAT, true);
       if (newJob) {
