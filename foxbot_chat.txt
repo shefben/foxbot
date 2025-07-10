@@ -7,6 +7,9 @@ Time to rock and roll!
 Hope you're ready %s!
 Good luck, have fun!
 Watch my back and I'll watch yours!
+Let's capture the flag, squad!
+Time to frag some enemies.
+Who needs a power-up?
 
 [KILL WINNING]
 You can't stop me %s!
@@ -14,6 +17,9 @@ I'm dominating this match!
 Another one bites the dust!
 Stay down %s!
 Who's next?
+Headshot!
+Didn't stand a chance!
+Spawn camp success!
 Too easy!
 I'm on fire!
 Looks like I'm unbeatable today!
@@ -27,6 +33,9 @@ We needed that!
 Comeback starts now!
 I'll take every advantage I can get!
 They won't keep us down!
+That's one way to respawn %s!
+Keep pushing up!
+We're clawing back!
 
 [KILLED WINNING]
 Lucky shot %s, I'm still ahead!
@@ -37,6 +46,9 @@ Not bad, but I'm still leading!
 Good one %s, I'll get you next time!
 That was a surprise!
 You won't get many more like that!
+I walked right into that trap.
+Okay, they've got skills.
+Respawning, be right back!
 
 [KILLED LOSING]
 Argh %s, I'm having a rough day!
@@ -47,6 +59,9 @@ Need to step up my game.
 Ouch! That hurt!
 They're all over us!
 This match is brutal.
+They're steamrolling us!
+Need backup at the point!
+Hold them off while I respawn!
 
 [SUICIDE]
 Oops, that didn't go as planned.
@@ -57,3 +72,6 @@ I swear I'm better than this.
 That was embarrassing!
 Even the best make mistakes.
 Let's never speak of this again.
+I blew myself up again.
+Gravity wins this round.
+Note to self: avoid that pit.
