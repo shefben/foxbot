@@ -51,6 +51,7 @@ List<char *> commanders;
 
 #include <queue>
 #include <unordered_map>
+#include "compat.h"
 
 int last_area = -1;
 bool area_on_last;
@@ -2034,8 +2035,10 @@ bool WaypointCacheSave() {
 
    UTIL_BuildFileName(filename, 255, "mapdata", mapname);
    FILE *bfp = fopen(filename, "wb");
-   if (bfp == nullptr)
+   if (bfp == nullptr) {
+      ALERT(at_error, "WaypointCacheSave: failed to open %s\n", filename);
       return false;
+   }
 
    fwrite(&header, sizeof header, 1, bfp);
 
@@ -2076,8 +2079,10 @@ bool WaypointCacheLoad() {
    strncat(mapname, "_cache.fwp", sizeof(mapname) - strlen(mapname) - 1);
    UTIL_BuildFileName(filename, 255, "mapdata", mapname);
    FILE *bfp = fopen(filename, "rb");
-   if (bfp == nullptr)
+   if (bfp == nullptr) {
+      ALERT(at_console, "WaypointCacheLoad: %s not found\n", filename);
       return false;
+   }
 
    fread(&header, sizeof header, 1, bfp);
    header.filetype[7] = 0;

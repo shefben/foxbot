@@ -42,6 +42,7 @@
 #include <cstdio>
 #include <climits>
 #include <vector>
+#include "compat.h"
 #include <queue>
 #include <set>
 #include <algorithm>
@@ -164,6 +165,8 @@ static constexpr float COVERAGE_STEP = 256.0f;
 void CoverageRecord(const Vector &pos) {
    CoverageCell key{static_cast<int>(floor(pos.x / COVERAGE_STEP)),
                     static_cast<int>(floor(pos.y / COVERAGE_STEP))};
+   if(g_coverage.size() > 10000)
+      g_coverage.clear();
    g_coverage.insert(key);
 }
 

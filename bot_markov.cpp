@@ -12,6 +12,7 @@
 #include <fstream>
 #include <cstdio>
 #include <enginecallback.h>
+#include "compat.h"
 
 static std::unordered_map<std::string, std::vector<std::string>> g_chain;
 static std::unordered_map<std::string, std::vector<std::string>> g_context_lines;

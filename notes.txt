@@ -1,0 +1,2 @@
+1. Many files rely on C++11 features (auto, range-for, unordered_map, constexpr, noexcept). Visual Studio C++ 6 does not support these. Added compat.h with macro fallbacks, but full porting is incomplete.
+2. Makefile now defaults to 64-bit builds; set USE_32=1 for 32-bit.

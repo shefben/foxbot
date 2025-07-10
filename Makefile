@@ -6,15 +6,21 @@
 ## borrowed from: https://github.com/Bots-United/jk_botti
 ##
 
+USE_32 ?= 0
+
 ifeq ($(OSTYPE),win32)
-	CPP = i686-w64-mingw32-gcc -m32
-	LINKFLAGS = -mdll -lm -Xlinker -add-stdcall-alias -s
-	DLLEND = .dll
+       CPP = i686-w64-mingw32-g++ -m32
+        LINKFLAGS = -mdll -lm -Xlinker -add-stdcall-alias -s
+        DLLEND = .dll
 else
-	CPP = gcc -m32
-	ARCHFLAG = -fPIC
-	LINKFLAGS = -fPIC -shared -ldl -lm -s
-	DLLEND = .so
+       CPP = g++
+        LINKFLAGS = -fPIC -shared -ldl -lm -s
+        DLLEND = .so
+        ARCHFLAG = -fPIC
+        ifeq ($(USE_32),1)
+                CPP += -m32
+                ARCHFLAG += -m32 -march=i686 -mtune=generic -msse -msse2 -mmmx
+        endif
 endif
 
 TARGET = foxbot
@@ -22,7 +28,6 @@ TARGET = foxbot
 BASEFLAGS = -Wall -Wno-write-strings -Wno-attributes -std=gnu++14 \
 			-static-libstdc++ -shared-libgcc
 
-ARCHFLAG += -march=i686 -mtune=generic -msse -msse2 -mmmx
 
 ifeq ($(DBG_FLGS),1)
 	OPTFLAGS = -O0 -g
