@@ -5,6 +5,7 @@
 #include "bot_markov.h"
 #include "bot_job_functions.h"
 #include <enginecallback.h>
+#include "bot_func.h"
 
 extern chatClass chat;
 extern int bot_chat;
@@ -19,6 +20,9 @@ static unsigned gCombatCounts[COMBAT_STATE_COUNT][COMBAT_STATE_COUNT];
 static unsigned gAimCounts[AIM_STATE_COUNT][AIM_STATE_COUNT];
 static unsigned gNavCounts[NAV_STATE_COUNT][NAV_STATE_COUNT];
 static unsigned gReactionCounts[REACT_STATE_COUNT][REACT_STATE_COUNT];
+
+TeamSignalType g_teamSignals[MAX_TEAMS];
+float g_teamSignalExpire[MAX_TEAMS];
 
 float gBotAccuracy[32];
 float gBotReaction[32];
@@ -568,6 +572,8 @@ void BotUpdateChat(bot_t *pBot) {
 
 void BotUpdateCombat(bot_t *pBot) {
     if(!pBot) return;
+    BotRecordNearbyBots(pBot);
+    TeamSignalType sig = BotCurrentSignal(pBot->current_team);
 
     CombatState next = CombatFSMNextState(&pBot->combatFsm);
 
@@ -598,6 +604,19 @@ void BotUpdateCombat(bot_t *pBot) {
                 pBot->visAllyCount > pBot->visEnemyCount + 1)
             next = COMBAT_APPROACH;
     }
+    else {
+        edict_t *shared = BotGetSharedEnemy(pBot);
+        if(shared) {
+            pBot->enemy.ptr = shared;
+            next = COMBAT_APPROACH;
+        }
+    }
+
+    if(sig == SIG_ATTACK)
+        next = COMBAT_ATTACK;
+
+    if(next == COMBAT_ATTACK && pBot->enemy.ptr)
+        BotBroadcastSignal(pBot->current_team, SIG_ATTACK, 0.5f);
 
     pBot->desired_combat_state = static_cast<int>(next);
 }
@@ -685,6 +704,8 @@ NavState NavFSMNextState(NavFSM *fsm) {
 
 void BotUpdateNavigation(bot_t *pBot) {
     if(!pBot) return;
+    BotRecordNearbyBots(pBot);
+    TeamSignalType sig = BotCurrentSignal(pBot->current_team);
     NavState next = NavFSMNextState(&pBot->navFsm);
 
     if(pBot->enemy.ptr) {
@@ -695,8 +716,15 @@ void BotUpdateNavigation(bot_t *pBot) {
                 next = NAV_STRAFE;
         }
     }
+    else {
+        edict_t *shared = BotGetSharedEnemy(pBot);
+        if(shared)
+            pBot->enemy.ptr = shared;
+    }
 
-    if(pBot->desired_reaction_state == REACT_PANIC)
+    if(sig == SIG_ATTACK && pBot->enemy.ptr)
+        next = NAV_STRAFE;
+    else if(pBot->desired_reaction_state == REACT_PANIC)
         next = NAV_STRAFE;
     pBot->desired_nav_state = static_cast<int>(next);
 }
@@ -803,4 +831,58 @@ void BotUpdateReaction(bot_t *pBot) {
         next = REACT_PANIC;
 
     pBot->desired_reaction_state = static_cast<int>(next);
+}
+
+void BotRecordNearbyBots(bot_t *pBot) {
+    if(!pBot) return;
+    pBot->nearbyBotCount = 0;
+    for(int i=0;i<MAX_BOTS && pBot->nearbyBotCount < MAX_NEARBY_BOTS;i++) {
+        bot_t *other = &bots[i];
+        if(!other->is_used || other == pBot)
+            continue;
+        if(other->current_team != pBot->current_team)
+            continue;
+        if((other->pEdict->v.origin - pBot->pEdict->v.origin).Length() > 600.0f)
+            continue;
+        NearbyBotState &info = pBot->nearbyBots[pBot->nearbyBotCount++];
+        info.bot = other->pEdict;
+        info.enemy = other->enemy.ptr;
+        info.combat_state = other->desired_combat_state;
+        info.nav_state = other->desired_nav_state;
+        info.last_update = pBot->f_think_time;
+    }
+}
+
+edict_t *BotGetSharedEnemy(const bot_t *pBot) {
+    int bestCount = 0;
+    edict_t *best = nullptr;
+    for(int i=0;i<pBot->nearbyBotCount;i++) {
+        edict_t *enemy = pBot->nearbyBots[i].enemy;
+        if(!enemy) continue;
+        int count = 1;
+        for(int j=i+1;j<pBot->nearbyBotCount;j++) {
+            if(pBot->nearbyBots[j].enemy == enemy)
+                ++count;
+        }
+        if(count > bestCount) {
+            bestCount = count;
+            best = enemy;
+        }
+    }
+    if(bestCount > 1)
+        return best;
+    return nullptr;
+}
+
+void BotBroadcastSignal(int team, TeamSignalType signal, float duration) {
+    if(team < 0 || team >= MAX_TEAMS) return;
+    g_teamSignals[team] = signal;
+    g_teamSignalExpire[team] = gpGlobals->time + duration;
+}
+
+TeamSignalType BotCurrentSignal(int team) {
+    if(team < 0 || team >= MAX_TEAMS) return SIG_NONE;
+    if(gpGlobals->time > g_teamSignalExpire[team])
+        g_teamSignals[team] = SIG_NONE;
+    return g_teamSignals[team];
 }
