@@ -3799,6 +3799,7 @@ void BotThink(bot_t *pBot) {
    // these four functions essentially handle the core of bot behaviour
    BotSenseEnvironment(pBot);
    BotFight(pBot);
+   PlannerThink(pBot);
    BotJobThink(pBot);
    BotRunJobs(pBot);
    BotUpdateState(pBot);
