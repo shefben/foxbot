@@ -28,6 +28,9 @@
 #ifndef BOT_JOB_THINK_H
 #define BOT_JOB_THINK_H
 
+struct bot_t;
+struct job_struct;
+
 // list of job types that the bots can try to accomplish
 enum knownJobTypes {
    JOB_NONE = -1,

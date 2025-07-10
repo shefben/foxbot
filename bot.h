@@ -29,6 +29,9 @@
 #define BOT_H
 
 #include "osdep.h"
+
+struct bot_t;
+struct job_struct;
 #include "bot_fsm.h"
 #include <cstring>
 
@@ -519,9 +522,10 @@ typedef struct {
    char message[255];
    char msgstart[255];
    bool msg_team;
-   char msgLocation[64];
-   float f_roleSayDelay; // used to stop bots reporting stuff too often
-   float f_last_reply_time; // last time bot replied to chat
+  char msgLocation[64];
+  float f_roleSayDelay; // used to stop bots reporting stuff too often
+  float f_last_reply_time; // last time bot replied to chat
+  float f_markov_check_time; // last frame MarkovPeriodicSave was attempted
 
    // Engineer variables /////////////
    unsigned has_sentry : 1;    // set true if the bot owns a sentry gun
