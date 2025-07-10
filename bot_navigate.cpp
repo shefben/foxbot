@@ -75,6 +75,14 @@ static constexpr WPT_INT32 lostBotIgnoreFlags = 0 + (W_FL_DELETED | W_FL_AIMING 
 int spawnAreaWP[4] = {-1, -1, -1, -1}; // used for tracking the areas where each team spawns
 extern int team_allies[4];
 
+// zone information
+static unsigned char waypoint_zones[MAX_WAYPOINTS][4];
+static bool zone_ready[4] = {false, false, false, false};
+
+static void ComputeZonesForTeam(int team);
+static MapZone GetWaypointZone(int wp, int team);
+static int FindNearestZoneWaypoint(int fromWP, MapZone zone, int team);
+
 // FUNCTION PROTOTYPES
 static int BotShouldJumpOver(const bot_t *pBot);
 static int BotShouldDuckUnder(const bot_t *pBot);
@@ -96,13 +104,14 @@ void BotUpdateHomeInfo(const bot_t *pBot) {
    // if the spawn location is totally unknown try to update it now
    if (spawnAreaWP[pBot->current_team] < 0 && pBot->f_killed_time + 15.0f > gpGlobals->time) {
       spawnAreaWP[pBot->current_team] = WaypointFindNearest_V(pBot->pEdict->v.origin, 800.0, pBot->current_team);
-
+      ComputeZonesForTeam(pBot->current_team);
       return;
    }
 
    // keep the spawn area info up to date
    if (pBot->current_wp != -1 && pBot->f_killed_time + 4.0f > gpGlobals->time) {
       spawnAreaWP[pBot->current_team] = pBot->current_wp;
+      ComputeZonesForTeam(pBot->current_team);
    }
 }
 
@@ -117,6 +126,85 @@ void ResetBotHomeInfo() {
    spawnAreaWP[1] = -1;
    spawnAreaWP[2] = -1;
    spawnAreaWP[3] = -1;
+
+   zone_ready[0] = zone_ready[1] = zone_ready[2] = zone_ready[3] = false;
+}
+
+// compute zone information for a team
+static void ComputeZonesForTeam(int team) {
+   if (team < 0 || team >= 4)
+      return;
+
+   zone_ready[team] = false;
+
+   if (spawnAreaWP[team] == -1)
+      return;
+
+   int enemySpawn = -1;
+   float bestDist = 9999999.0f;
+   for (int i = 0; i < 4; ++i) {
+      if (i == team || spawnAreaWP[i] == -1)
+         continue;
+      const float d = (waypoints[spawnAreaWP[team]].origin - waypoints[spawnAreaWP[i]].origin).Length();
+      if (d < bestDist) {
+         bestDist = d;
+         enemySpawn = spawnAreaWP[i];
+      }
+   }
+
+   if (enemySpawn == -1)
+      return;
+
+   const Vector our = waypoints[spawnAreaWP[team]].origin;
+   const Vector enemy = waypoints[enemySpawn].origin;
+
+   for (int i = 0; i < num_waypoints; ++i) {
+      const float dOur = (waypoints[i].origin - our).Length();
+      const float dEnemy = (waypoints[i].origin - enemy).Length();
+
+      if (dOur < dEnemy * 0.5f)
+         waypoint_zones[i][team] = ZONE_BASE;
+      else if (dEnemy < dOur * 0.5f)
+         waypoint_zones[i][team] = ZONE_ENEMY_BASE;
+      else
+         waypoint_zones[i][team] = ZONE_MID;
+   }
+
+   zone_ready[team] = true;
+}
+
+static MapZone GetWaypointZone(int wp, int team) {
+   if (wp < 0 || wp >= num_waypoints || team < 0 || team >= 4)
+      return ZONE_UNKNOWN;
+
+   if (!zone_ready[team])
+      ComputeZonesForTeam(team);
+
+   return static_cast<MapZone>(waypoint_zones[wp][team]);
+}
+
+static int FindNearestZoneWaypoint(int fromWP, MapZone zone, int team) {
+   if (fromWP < 0 || fromWP >= num_waypoints)
+      return -1;
+
+   if (!zone_ready[team])
+      ComputeZonesForTeam(team);
+
+   int best = -1;
+   int bestDist = 9999999;
+
+   for (int i = 0; i < num_waypoints; ++i) {
+      if (waypoint_zones[i][team] != static_cast<unsigned char>(zone))
+         continue;
+
+      const int d = WaypointDistanceFromTo(fromWP, i, team);
+      if (d >= 0 && d < bestDist) {
+         best = i;
+         bestDist = d;
+      }
+   }
+
+   return best;
 }
 
 // This function should be used when the bot has just spawned and has no current
@@ -453,6 +541,22 @@ bool BotNavigateWaypoints(bot_t *pBot, bool navByStrafe) {
 
    pBot->f_move_speed = pBot->f_max_speed;
    pBot->f_side_speed = 0.0;
+
+   // plan movement zone by zone
+   if (pBot->current_wp != -1 && pBot->goto_wp != -1 && pBot->branch_waypoint == -1) {
+      const MapZone currentZone = GetWaypointZone(pBot->current_wp, pBot->current_team);
+      const MapZone goalZone = GetWaypointZone(pBot->goto_wp, pBot->current_team);
+      if (currentZone != ZONE_UNKNOWN && goalZone != ZONE_UNKNOWN && currentZone != goalZone) {
+         MapZone nextZone = goalZone;
+         if ((currentZone == ZONE_BASE && goalZone == ZONE_ENEMY_BASE) ||
+             (currentZone == ZONE_ENEMY_BASE && goalZone == ZONE_BASE))
+            nextZone = ZONE_MID;
+
+         const int zoneWP = FindNearestZoneWaypoint(pBot->current_wp, nextZone, pBot->current_team);
+         if (zoneWP != -1)
+            pBot->branch_waypoint = zoneWP;
+      }
+   }
 
    // is it time to consider taking some kind of route shortcut?
    if (pBot->f_shortcutCheckTime < pBot->f_think_time || pBot->f_shortcutCheckTime - 60.0 > pBot->f_think_time) // sanity check

@@ -31,6 +31,9 @@
 // standard amount of time to reach the bots current waypoint
 #define BOT_WP_DEADLINE 7.0
 
+// coarse navigation zones
+enum MapZone { ZONE_UNKNOWN = 0, ZONE_BASE, ZONE_MID, ZONE_ENEMY_BASE };
+
 void BotUpdateHomeInfo(const bot_t *pBot);
 
 void BotFindCurrentWaypoint(bot_t *pBot);
