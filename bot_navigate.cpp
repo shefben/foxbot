@@ -39,7 +39,10 @@
 #include <cstdio>
 #include <climits>
 #include <vector>
+#include <queue>
+#include <set>
 #include <algorithm>
+#include <cfloat>
 
 struct Spot {
    Vector origin;
@@ -174,6 +177,16 @@ extern bool g_bot_debug;
 
 extern float last_frame_time;
 
+// ---------------- Nav Mesh Structures ----------------
+struct NavTriangle {
+   Vector a, b, c;
+   Vector center;
+   std::vector<int> neighbors;
+};
+
+static std::vector<NavTriangle> g_navMesh;
+static bool g_navMeshReady = false;
+
 // bit field of waypoint types to ignore when the bot is lost
 // and looking for a new current waypoint to head for
 static constexpr WPT_INT32 lostBotIgnoreFlags = 0 + (W_FL_DELETED | W_FL_AIMING | W_FL_TFC_PL_DEFEND | W_FL_TFC_PIPETRAP | W_FL_TFC_SENTRY | W_FL_TFC_DETPACK_CLEAR | W_FL_TFC_DETPACK_SEAL | W_FL_SNIPER | W_FL_TFC_TELEPORTER_ENTRANCE |
@@ -199,6 +212,11 @@ static bool BotUpdateRoute(bot_t *pBot);
 static void BotHandleLadderTraffic(bot_t *pBot);
 static void BotCheckForRocketJump(bot_t *pBot);
 static void BotCheckForConcJump(bot_t *pBot);
+static int FindTriangle(const Vector &p);
+static bool PointInTriangle(const Vector &p, const NavTriangle &t);
+static void BuildNavMesh();
+static bool NavMeshPath(const Vector &start, const Vector &goal, std::vector<int> &r_tris);
+bool NavMeshNavigate(bot_t *pBot, const Vector &goal);
 
 // This function allows bots to report in the waypoint they last spawned
 // nearby.
@@ -312,6 +330,159 @@ static int FindNearestZoneWaypoint(int fromWP, MapZone zone, int team) {
    }
 
    return best;
+}
+
+// ---------------- Nav Mesh Utilities ----------------
+static float TriArea(const Vector &a, const Vector &b, const Vector &c) {
+   return ((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)) * 0.5f;
+}
+
+static bool PointInTriangle(const Vector &p, const NavTriangle &t) {
+   const float area = fabs(TriArea(t.a, t.b, t.c));
+   const float a1 = fabs(TriArea(p, t.b, t.c));
+   const float a2 = fabs(TriArea(t.a, p, t.c));
+   const float a3 = fabs(TriArea(t.a, t.b, p));
+   return fabs(area - (a1 + a2 + a3)) < 1.0f;
+}
+
+static int FindTriangle(const Vector &p) {
+   for (size_t i = 0; i < g_navMesh.size(); ++i) {
+      if (PointInTriangle(p, g_navMesh[i]))
+         return static_cast<int>(i);
+   }
+   return -1;
+}
+
+static void BuildNavMesh() {
+   if (g_navMeshReady)
+      return;
+
+   const float step = 128.0f;
+   const Vector mins(-1024, -1024, -1024);
+   const Vector maxs(1024, 1024, 1024);
+
+   const int w = static_cast<int>((maxs.x - mins.x) / step) + 1;
+   const int h = static_cast<int>((maxs.y - mins.y) / step) + 1;
+
+   std::vector<Vector> samples(w * h);
+   TraceResult tr;
+   for (int y = 0; y < h; ++y) {
+      for (int x = 0; x < w; ++x) {
+         Vector start(mins.x + x * step, mins.y + y * step, maxs.z);
+         UTIL_TraceLine(start, Vector(start.x, start.y, mins.z), dont_ignore_monsters, nullptr, &tr);
+         samples[y * w + x] = tr.vecEndPos;
+      }
+   }
+
+   auto V = [&](int x, int y) { return samples[y * w + x]; };
+   for (int y = 0; y < h - 1; ++y) {
+      for (int x = 0; x < w - 1; ++x) {
+         NavTriangle t1{V(x, y), V(x, y + 1), V(x + 1, y + 1)};
+         t1.center = (t1.a + t1.b + t1.c) / 3.0f;
+         NavTriangle t2{V(x, y), V(x + 1, y + 1), V(x + 1, y)};
+         t2.center = (t2.a + t2.b + t2.c) / 3.0f;
+         g_navMesh.push_back(t1);
+         g_navMesh.push_back(t2);
+      }
+   }
+
+   for (size_t i = 0; i < g_navMesh.size(); ++i) {
+      for (size_t j = i + 1; j < g_navMesh.size(); ++j) {
+         int shared = 0;
+         const Vector *a[] = {&g_navMesh[i].a, &g_navMesh[i].b, &g_navMesh[i].c};
+         const Vector *b[] = {&g_navMesh[j].a, &g_navMesh[j].b, &g_navMesh[j].c};
+         for (int m = 0; m < 3; ++m)
+            for (int n = 0; n < 3; ++n)
+               if ((a[m]->x == b[n]->x) && (a[m]->y == b[n]->y) && (a[m]->z == b[n]->z))
+                  ++shared;
+         if (shared >= 2) {
+            g_navMesh[i].neighbors.push_back(static_cast<int>(j));
+            g_navMesh[j].neighbors.push_back(static_cast<int>(i));
+         }
+      }
+   }
+
+   g_navMeshReady = true;
+}
+
+struct Node {
+   int tri;
+   float g;
+   float f;
+   int parent;
+};
+
+static bool NavMeshPath(const Vector &start, const Vector &goal, std::vector<int> &r_tris) {
+   BuildNavMesh();
+   int startTri = FindTriangle(start);
+   int goalTri = FindTriangle(goal);
+   if (startTri < 0 || goalTri < 0)
+      return false;
+
+   std::priority_queue<Node, std::vector<Node>, bool (*)(const Node &, const Node &)> open(
+       [](const Node &a, const Node &b) { return a.f > b.f; });
+   std::vector<float> best(g_navMesh.size(), FLT_MAX);
+   std::vector<int> parent(g_navMesh.size(), -1);
+
+   open.push({startTri, 0.0f, (g_navMesh[startTri].center - goal).Length(), -1});
+   best[startTri] = 0.0f;
+
+   while (!open.empty()) {
+      Node cur = open.top();
+      open.pop();
+
+      if (cur.tri == goalTri) {
+         int t = cur.tri;
+         while (t != -1) {
+            r_tris.push_back(t);
+            t = parent[t];
+         }
+         std::reverse(r_tris.begin(), r_tris.end());
+         return true;
+      }
+
+      for (int nb : g_navMesh[cur.tri].neighbors) {
+         float g2 = cur.g + (g_navMesh[cur.tri].center - g_navMesh[nb].center).Length();
+         if (g2 < best[nb]) {
+            best[nb] = g2;
+            parent[nb] = cur.tri;
+            float f = g2 + (g_navMesh[nb].center - goal).Length();
+            open.push({nb, g2, f, cur.tri});
+         }
+      }
+   }
+
+   return false;
+}
+
+bool NavMeshNavigate(bot_t *pBot, const Vector &goal) {
+   if (!g_navMeshReady)
+      BuildNavMesh();
+
+   if (pBot->navPath.empty() || !(pBot->navGoal == goal)) {
+      std::vector<int> tris;
+      if (!NavMeshPath(pBot->pEdict->v.origin, goal, tris))
+         return false;
+      pBot->navPath.clear();
+      for (int t : tris)
+         pBot->navPath.push_back(g_navMesh[t].center);
+      pBot->navGoal = goal;
+      pBot->navPathIndex = 0;
+   }
+
+   if (pBot->navPathIndex >= pBot->navPath.size())
+      return false;
+
+   Vector target = pBot->navPath[pBot->navPathIndex];
+   if (VectorsNearerThan(pBot->pEdict->v.origin, target, 20.0f)) {
+      ++pBot->navPathIndex;
+      return true;
+   }
+
+   BotSetFacing(pBot, target);
+   pBot->f_move_speed = pBot->f_max_speed;
+   pBot->pEdict->v.button |= IN_FORWARD;
+   return true;
 }
 
 // This function should be used when the bot has just spawned and has no current
@@ -636,8 +807,18 @@ void BotNavigateWaypointless(bot_t *pBot) {
 // Set navByStrafe to true if you wish the bot to navigate by using axial
 // movement speeds only(i.e. without having to look at the next waypoint).
 bool BotNavigateWaypoints(bot_t *pBot, bool navByStrafe) {
-   if (num_waypoints < 1)
+   if (num_waypoints < 1) {
+      Vector goal = pBot->navGoal;
+      if (goal == Vector(0, 0, 0)) {
+         if (pBot->enemy.ptr != nullptr)
+            goal = pBot->enemy.ptr->v.origin;
+         else
+            goal = pBot->pEdict->v.origin;
+      }
+      if (NavMeshNavigate(pBot, goal))
+         return true;
       return false;
+   }
 
    // has the bot been getting stuck a little too often?
    if (pBot->routeFailureTally > 1) {

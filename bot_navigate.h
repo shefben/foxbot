@@ -90,6 +90,9 @@ int BotDrowningWaypointSearch(const bot_t *pBot);
 
 bool BotFindTeleportShortCut(bot_t *pBot);
 
+// nav mesh support
+void BuildNavMesh();
+bool NavMeshNavigate(bot_t *pBot, const Vector &goal);
 void AddDangerSpot(const Vector &pos);
 void AddAmbushSpot(const Vector &pos);
 bool IsDangerSpot(const Vector &pos);

@@ -34,6 +34,7 @@ struct bot_t;
 struct job_struct;
 #include "bot_fsm.h"
 #include <cstring>
+#include <vector>
 
 // stuff for Win32 vs. Linux builds
 
@@ -597,6 +598,11 @@ typedef struct {
 
    int mission : 8;          // Attacker, Defender, etc.
    unsigned lockMission : 1; // whether the bot should stick to it's current defense/offense role or not
+
+   // fallback navigation variables
+   std::vector<Vector> navPath; // current navigation path over nav mesh
+   size_t navPathIndex = 0;     // index into navPath
+   Vector navGoal;              // current navigation goal when waypoints are absent
 } bot_t;
 
 // roles to fill on the team
