@@ -190,6 +190,7 @@ static void BotEnemyCarrierAlert(bot_t *pBot);
 static void BotSenseEnvironment(bot_t *pBot);
 static void BotFight(bot_t *pBot);
 static void BotSpectatorDebug(bot_t *pBot);
+static bool BotIdleMicroMovement(bot_t *pBot);
 
 inline edict_t *CREATE_FAKE_CLIENT(const char *netname) {
    if (debug_engine) {
@@ -4282,6 +4283,8 @@ void BotLookAbout(bot_t *pBot) {
 
    // use a timer to minimise CPU usage
    if (pBot->f_view_change_time <= pBot->f_think_time) {
+      if (BotIdleMicroMovement(pBot))
+         return;
       // if the bot saw an enemy recently behave differently
       if (pBot->enemy.f_lastSeen + random_float(4.0, 6.0) >= pBot->f_think_time) {
          // set the timer again to a shorter, more alert level
@@ -4309,15 +4312,43 @@ void BotLookAbout(bot_t *pBot) {
       UTIL_TraceLine(pBot->pEdict->v.origin, v_forwards, dont_ignore_monsters, pBot->pEdict->v.pContainingEntity, &tr);
 
       // if the new view angle is relatively unblocked make the bot turn to match it
-      if (tr.flFraction >= 1.0) {
-         pBot->pEdict->v.ideal_yaw = newAngle.y;
-         BotFixIdealYaw(pBot->pEdict);
-         pBot->pEdict->v.idealpitch = random_float(-15.0, 15.0);
+   if (tr.flFraction >= 1.0) {
+      pBot->pEdict->v.ideal_yaw = newAngle.y;
+      BotFixIdealYaw(pBot->pEdict);
+      pBot->pEdict->v.idealpitch = random_float(-15.0, 15.0);
 
-         // set the timer again
-         pBot->f_view_change_time = pBot->f_think_time + RANDOM_FLOAT(1.0f, 3.0f);
+      // set the timer again
+      pBot->f_view_change_time = pBot->f_think_time + RANDOM_FLOAT(1.0f, 3.0f);
+   }
+}
+
+// This helper triggers small stance shifts or glances at teammates when idle.
+static bool BotIdleMicroMovement(bot_t *pBot) {
+   if (pBot->enemy.f_lastSeen + 4.0f > pBot->f_think_time)
+      return false;
+
+   // occasionally glance at a nearby teammate
+   if (random_long(1, 100) <= 20) {
+      edict_t *ally = BotAllyAtVector(pBot, pBot->pEdict->v.origin, 300.0f, false);
+      if (ally != nullptr) {
+         BotSetFacing(pBot, ally->v.origin);
+         pBot->f_view_change_time = pBot->f_think_time + random_float(1.0f, 2.0f);
+         return true;
       }
    }
+
+   // small stance shift
+   if (random_long(1, 100) <= 40) {
+      const float move = pBot->f_max_speed / 4.0f;
+      pBot->f_side_speed = (random_long(0, 1) ? move : -move);
+      if (random_long(1, 100) < 50)
+         pBot->f_move_speed = (random_long(0, 1) ? move : -move);
+
+      pBot->f_view_change_time = pBot->f_think_time + random_float(0.5f, 1.0f);
+      return true;
+   }
+
+   return false;
 }
 
 // This function gets the bot to trigger debug messages only if there is a
