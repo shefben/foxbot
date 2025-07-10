@@ -13,10 +13,12 @@
 #include <enginecallback.h>
 
 static std::unordered_map<std::string, std::vector<std::string>> g_chain;
+static std::unordered_map<std::string, std::vector<std::string>> g_context_lines;
 static size_t g_order = 3; // default to trigram
 
 void MarkovInit() {
     g_chain.clear();
+    g_context_lines.clear();
     g_order = 3;
 }
 
@@ -183,17 +185,28 @@ bool MarkovLoad(const char *file) {
     FILE *cfp = fopen(chatFile, "r");
     if(cfp) {
         char buf[256];
+        std::string current;
         while(UTIL_ReadFileLine(buf, sizeof(buf), cfp)) {
             size_t len = strlen(buf);
             if(len && (buf[len-1] == '\n' || buf[len-1] == '\r'))
                 buf[--len] = '\0';
             if(buf[0] == '#' || buf[0] == '\0')
                 continue;
-            if(buf[0] == '[')
+            if(buf[0] == '[') {
+                char ctx[64];
+                strncpy(ctx, buf+1, sizeof(ctx)-1);
+                ctx[sizeof(ctx)-1] = '\0';
+                char *end = strchr(ctx, ']');
+                if(end) *end = '\0';
+                for(size_t i=0; ctx[i]; ++i) ctx[i] = static_cast<char>(tolower(ctx[i]));
+                current = ctx;
                 continue;
+            }
             char *ptr = strstr(buf, "%n");
             if(ptr) *(ptr+1) = 's';
             MarkovAddSentence(buf);
+            if(!current.empty())
+                g_context_lines[current].emplace_back(buf);
         }
         fclose(cfp);
     }
@@ -202,6 +215,23 @@ bool MarkovLoad(const char *file) {
 }
 
 static float g_next_save_time = 0.0f;
+
+void MarkovGenerateContextual(const char *context, char *out, size_t maxLen) {
+    if(!context) {
+        MarkovGenerate(out, maxLen);
+        return;
+    }
+    std::string key(context);
+    for(char &c : key) c = static_cast<char>(tolower(c));
+    auto it = g_context_lines.find(key);
+    if(it == g_context_lines.end() || it->second.empty()) {
+        MarkovGenerate(out, maxLen);
+        return;
+    }
+    const std::string &phrase = it->second[rand() % it->second.size()];
+    strncpy(out, phrase.c_str(), maxLen-1);
+    out[maxLen-1] = '\0';
+}
 
 void MarkovPeriodicSave(const char *file, float currentTime) {
     if(currentTime >= g_next_save_time) {
