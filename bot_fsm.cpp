@@ -610,12 +610,15 @@ void BotUpdateChat(bot_t *pBot) {
             }
             break;
         case CHAT_DEATH:
+            if(!pBot->killer_edict && pBot->killer_name[0])
+                pBot->killer_edict = UTIL_PlayerByName(pBot->killer_name);
             if(pBot->killer_edict && random_long(1, 1000) < bot_chat) {
                 strncpy(newJob->message, "@death", MAX_CHAT_LENGTH);
                 newJob->player = pBot->killer_edict;
                 newJob->message[MAX_CHAT_LENGTH-1] = '\0';
                 SubmitNewJob(pBot, JOB_CHAT, newJob);
                 pBot->killer_edict = NULL;
+                pBot->killer_name[0] = '\0';
             }
             break;
         default:

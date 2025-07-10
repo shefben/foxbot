@@ -497,9 +497,10 @@ typedef struct {
 
    float f_bot_spawn_time;      // remembers when the bot last spawned
    float last_spawn_time;       // also remembers when the bot last spawned(dunno why)
-   float f_killed_time;         // remembers when the bot last died
-   edict_t *killer_edict;       // remembers who last killed this bot
-   edict_t *killed_edict;       // remembers who the bot just killed
+  float f_killed_time;         // remembers when the bot last died
+  edict_t *killer_edict;       // remembers who last killed this bot
+  char killer_name[BOT_NAME_LEN + 1]; // name of last killer for persistence
+  edict_t *killed_edict;       // remembers who the bot just killed
    bool lockClass;              // set true if you don't want the bots changing class when they feel like it
    short deathsTillClassChange; // remaining deaths till the bot should pick a new class
    int scoreAtSpawn;            // what their score was when they last spawned
@@ -697,6 +698,7 @@ int UTIL_GetFlagsTeam(const edict_t *flag_edict);
 int UTIL_GetClass(edict_t *pEntity);
 
 int UTIL_GetBotIndex(edict_t *pEdict);
+edict_t *UTIL_PlayerByName(const char *name);
 
 bot_t *UTIL_GetBotPointer(edict_t *pEdict);
 

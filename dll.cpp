@@ -39,6 +39,7 @@
 #include "bot_rl.h"
 #include "waypoint.h"
 #include "bot_markov.h"
+#include "bot_memory.h"
 
 // meta mod includes
 #include <dllapi.h>
@@ -683,6 +684,7 @@ void GameDLLInit() {
    char mkfile[256];
    UTIL_BuildFileName(mkfile, 255, (char*)"foxbot_markov.dat", NULL);
    MarkovLoad(mkfile);
+   LoadBotMemory();
    LoadFSMCounts();
    LoadBotMetrics();
    // read the chat strings from the bot chat file
@@ -698,6 +700,7 @@ void GameDLLShutdown() {
    char mkfile[256];
    UTIL_BuildFileName(mkfile, 255, (char*)"foxbot_markov.dat", NULL);
    MarkovSave(mkfile);
+   SaveBotMemory();
    for(int i=0;i<32;i++) {
       if(bots[i].is_used)
          RL_RecordRoundEnd(&bots[i].fsm);
@@ -5792,6 +5795,7 @@ static void ClearKickedBotsData(const int botIndex, const bool eraseBotsName) {
    bots[botIndex].lastEnemySentryGun = nullptr;
    bots[botIndex].suspectedSpy = nullptr;
    bots[botIndex].killer_edict = nullptr;
+   bots[botIndex].killer_name[0] = '\0';
    bots[botIndex].killed_edict = nullptr;
    bots[botIndex].has_sentry = false;
    bots[botIndex].sentry_edict = nullptr;

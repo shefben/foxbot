@@ -1,5 +1,6 @@
 #include "bot_markov.h"
 #include "bot.h"
+#include "bot_memory.h"
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -242,6 +243,7 @@ void MarkovPeriodicSave(const char *file, float currentTime) {
                 UTIL_BotLogPrintf("MarkovPeriodicSave: saved %s at %f\n", file, currentTime);
             }
         }
+        SaveBotMemory();
         float interval = CVAR_GET_FLOAT("bot_save_interval");
         if(interval <= 0.0f)
             interval = 120.0f;

@@ -204,6 +204,7 @@ sourceFiles = files (
    'linkfunc.cpp',
    'meta_api.cpp',
    'bot_rl.cpp',
+   'bot_memory.cpp',
    'sdk_util.cpp',
    'util.cpp',
    'version.cpp',
