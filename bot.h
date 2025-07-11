@@ -30,9 +30,7 @@
 
 #include "osdep.h"
 #include "compat.h"
-
-struct bot_t;
-struct job_struct;
+#include "job_struct.h"
 #include "bot_fsm.h"
 #include <cstring>
 #include <vector>
@@ -217,34 +215,6 @@ typedef struct {
                         //	int logoIndex; // choice of graffiti logo
 } bot_trait_struct;
 
-// maximum number of jobs storable in the bot's job buffer
-#define JOB_BUFFER_MAX 5
-
-// this structure is shared by all the job types in the bot's job buffer
-typedef struct {
-   float f_bufferedTime; // how long ago this job was put into the buffer
-   int priority;         // how important this job is currently
-
-   int phase;         // internal job state, should be zero when job is created
-   float phase_timer; // used in various ways by each job type
-
-   int waypoint;                  // waypoint this job concerns
-   int waypointTwo;               // a few jobs involve two waypoints
-   edict_t *object;               // object this job concerns
-   edict_t *player;               // player this job concerns
-   Vector origin;                 // map coordinates this job concerns
-   char message[MAX_CHAT_LENGTH]; // used only by jobs that involve talking
-                                  //	int generalData;  // general purpose, can be used any way the job sees fit
-} job_struct;
-
-// maximum number of jobs that can be blacklisted(kept out of a bot's buffer) simultaneously
-#define JOB_BLACKLIST_MAX 5
-
-// a blacklist structure for jobs that fail repetitively(often because of waypoint problems)
-typedef struct {
-   int type;        // type of job being blacklisted
-   float f_timeOut; // time when job should be allowed back into the job buffer
-} job_blacklist_struct;
 
 // maximum number of teleport pairs each bot can remember
 #define MAX_BOT_TELEPORTER_MEMORY 3
